@@ -19,21 +19,21 @@ const roles: Role[] = [
     label: 'Parent',
     description: 'Authorize pickup persons for your children',
     color: 'bg-blue-100 border-blue-300 text-blue-800',
-    route: '/parent'
+    route: '/dashboard'
   },
   {
     id: 'pickup',
     label: 'Pickup Person',
     description: 'Receive authorization and generate QR codes',
     color: 'bg-green-100 border-green-300 text-green-800',
-    route: '/pickup'
+    route: '/dashboard'
   },
   {
     id: 'staff',
     label: 'Staff Member',
     description: 'Scan QR codes and verify pickup authorizations',
     color: 'bg-purple-100 border-purple-300 text-purple-800',
-    route: '/staff'
+    route: '/dashboard'
   }
 ];
 
