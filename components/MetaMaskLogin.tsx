@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState } from 'react';
-import { ethers } from 'ethers';
+import { useWallet } from '../hooks/useWallet';
 import { addUserToFirebase, getUserByWallet, UserRole } from '../lib/firebaseUtils';
 
 interface MetaMaskLoginProps {
@@ -7,7 +9,15 @@ interface MetaMaskLoginProps {
 }
 
 const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
-  const [address, setAddress] = useState<string | null>(null);
+  const { 
+    address, 
+    isConnected, 
+    isLoading: walletLoading, 
+    error: walletError, 
+    connect, 
+    isMetaMaskInstalled 
+  } = useWallet();
+  
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
@@ -17,16 +27,23 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
   const connectWallet = async () => {
     setLoading(true);
     setError(null);
+    
     try {
-      if (!window.ethereum) {
-        setError('MetaMask is not installed.');
+      if (!isMetaMaskInstalled) {
+        setError('MetaMask is not installed. Please install MetaMask to continue.');
         setLoading(false);
         return;
       }
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      const userAddress = accounts[0];
-      setAddress(userAddress);
+
+      const result = await connect();
+      
+      if (!result.success) {
+        setError(result.error || 'Failed to connect wallet');
+        setLoading(false);
+        return;
+      }
+
+      const userAddress = result.address!;
       
       // Check if user exists in Firebase
       const existingUser = await getUserByWallet(userAddress);
@@ -39,7 +56,7 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
         if (onLogin) onLogin(userAddress);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to connect');
+      setError(err.message || 'Failed to connect wallet');
     } finally {
       setLoading(false);
     }
@@ -73,6 +90,10 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
     }
   };
 
+  // Combine errors from wallet and local state
+  const displayError = error || walletError;
+  const isCurrentlyLoading = loading || walletLoading;
+
   return (
     <div className="flex flex-col items-center justify-center p-6 border rounded-xl shadow-lg bg-white/90 max-w-sm mx-auto">
       <div className="mb-3 flex items-center gap-2">
@@ -80,7 +101,7 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
         <h2 className="text-xl font-bold text-indigo-700">MetaMask Login</h2>
       </div>
       
-      {address && !showRoleSelection ? (
+      {isConnected && address && !showRoleSelection ? (
         <div className="text-green-600 font-mono mb-2 text-center">
           Connected:<br />
           <span className="break-all">{address}</span>
@@ -89,9 +110,9 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
         <button
           onClick={connectWallet}
           className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-lg font-semibold shadow hover:from-indigo-600 hover:to-blue-600 transition disabled:opacity-50"
-          disabled={loading}
+          disabled={isCurrentlyLoading}
         >
-          {loading ? 'Connecting...' : 'Connect MetaMask'}
+          {isCurrentlyLoading ? 'Connecting...' : 'Connect MetaMask'}
         </button>
       ) : (
         <div className="w-full space-y-4">
@@ -101,7 +122,7 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
             </label>
             <input
               type="text"
-              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+              className="w-full p-2 border text-gray-400 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
               placeholder="Enter your name"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
@@ -113,7 +134,7 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
               Select Your Role
             </label>
             <select
-              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
+              className="w-full p-2 border rounded-lg text-gray-400 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500"
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value as UserRole)}
             >
@@ -126,14 +147,14 @@ const MetaMaskLogin: React.FC<MetaMaskLoginProps> = ({ onLogin }) => {
           <button
             onClick={handleRoleSelection}
             className="w-full px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold shadow hover:from-green-600 hover:to-emerald-600 transition disabled:opacity-50"
-            disabled={loading || !userName.trim()}
+            disabled={isCurrentlyLoading || !userName.trim()}
           >
-            {loading ? 'Saving...' : 'Save & Continue'}
+            {isCurrentlyLoading ? 'Saving...' : 'Save & Continue'}
           </button>
         </div>
       )}
       
-      {error && <div className="text-red-500 mt-2 text-center">{error}</div>}
+      {displayError && <div className="text-red-500 mt-2 text-center">{displayError}</div>}
     </div>
   );
 };

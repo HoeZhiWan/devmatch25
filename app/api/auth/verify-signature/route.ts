@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMessage } from 'ethers';
+import { verifySignature, validateAuthorizationMessage } from '../../../../lib/wallet/signature';
 import { isValidAddress } from '../../../../lib/wallet/connection';
 
 interface VerifySignatureRequest {
@@ -43,21 +43,44 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifySig
 
     const normalizedExpectedAddress = expectedAddress.toLowerCase();
 
-    try {
-      // Verify the signature and recover the address
-      const recoveredAddress = verifyMessage(message, signature);
-      const normalizedRecoveredAddress = recoveredAddress.toLowerCase();
+    // Validate authorization message format if applicable
+    if (message.includes('DevMatch25 - Child Pickup Authorization')) {
+      if (!validateAuthorizationMessage(message)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid authorization message format' },
+          { status: 400 }
+        );
+      }
+    }
 
-      // Check if the recovered address matches the expected address
-      const isValid = normalizedRecoveredAddress === normalizedExpectedAddress;
+    try {
+      // Use wallet integration signature verification
+      const verificationResult = verifySignature({
+        message,
+        signature,
+        expectedAddress: normalizedExpectedAddress
+      });
+
+      if (!verificationResult.isValid) {
+        console.log(`Signature verification failed: ${verificationResult.error || 'Unknown error'}`);
+        
+        return NextResponse.json({
+          success: true,
+          isValid: false,
+          error: verificationResult.error || 'Invalid signature',
+          timestamp: Date.now()
+        });
+      }
+
+      const recoveredAddress = verificationResult.recoveredAddress!;
 
       // Log verification attempt
-      console.log(`Signature verification: Expected=${normalizedExpectedAddress}, Recovered=${normalizedRecoveredAddress}, Valid=${isValid}`);
+      console.log(`Signature verification: Expected=${normalizedExpectedAddress}, Recovered=${recoveredAddress}, Valid=true`);
 
       return NextResponse.json({
         success: true,
-        isValid,
-        recoveredAddress: normalizedRecoveredAddress,
+        isValid: true,
+        recoveredAddress,
         timestamp: Date.now()
       });
 

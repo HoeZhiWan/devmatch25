@@ -1,13 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySignature } from "@/lib/metamask";
+import { verifySignature } from "@/lib/wallet/signature";
+import { getUserByWallet } from "@/lib/firebaseUtils";
 
 export async function POST(req: NextRequest) {
-  const { message, signature } = await req.json();
+  try {
+    const { message, signature, expectedAddress } = await req.json();
 
-  const walletAddress = await verifySignature(message, signature);
-  if (!walletAddress) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    if (!message || !signature || !expectedAddress) {
+      return NextResponse.json(
+        { error: "Missing required parameters: message, signature, and expectedAddress" },
+        { status: 400 }
+      );
+    }
+
+    // Verify the signature using your wallet integration
+    const verificationResult = verifySignature({
+      message,
+      signature,
+      expectedAddress: expectedAddress.toLowerCase()
+    });
+
+    if (!verificationResult.isValid) {
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 401 }
+      );
+    }
+
+    // Get user from Firebase
+    const user = await getUserByWallet(expectedAddress);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found. Please complete registration first." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      walletAddress: verificationResult.recoveredAddress,
+      user: {
+        walletAddress: user.walletAddress,
+        role: user.role,
+        name: user.name
+      }
+    });
+
+  } catch (error) {
+    console.error('Login verification error:', error);
+    return NextResponse.json(
+      { error: "Internal server error during authentication" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ walletAddress });
 }
