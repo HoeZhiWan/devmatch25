@@ -1,103 +1,187 @@
-import Image from "next/image";
+"use client";
+import React, { useState } from "react";
+import { useUserRole } from "../hooks/useUserRole";
+import StaffDashboard from "../components/StaffDashboard";
+import ParentDashboard from "../components/ParentDashboard";
 
-export default function Home() {
+export default function HomePage() {
+  const [address, setAddress] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'staff' | 'parent' | 'pickup' | null>(null);
+  const role = useUserRole(address);
+
+  // Mock login for demo
+  const handleMockLogin = (role: 'staff' | 'parent' | 'pickup') => {
+    setSelectedRole(role);
+    setAddress('0xMockAddress123');
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 flex flex-col">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-lg border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="flex justify-between items-center py-5">
+            {/* Logo & Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-lg">🛡️</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                  KID GUARD
+                </h1>
+                <p className="text-xs text-slate-500">Child Pickup Authorization System</p>
+              </div>
+            </div>
+            {/* Badge */}
+            <div className="px-3 py-1 bg-gradient-to-r from-green-100 to-green-200 text-green-800 rounded-full text-xs font-semibold shadow-sm">
+              Demo Mode
+            </div>
+          </div>
         </div>
+      </header>
+
+      {/* Main */}
+      <main className="flex-1 max-w-7xl mx-auto px-6 lg:px-10 py-12">
+        {!address && !selectedRole && (
+          <div className="max-w-4xl mx-auto text-center">
+            {/* Hero */}
+            <div className="mb-14">
+              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl mb-6 shadow-lg">
+                <span className="text-4xl">🛡️</span>
+              </div>
+              <h2 className="text-4xl font-extrabold text-slate-900 mb-4">
+                Secure Child Pickup System
+              </h2>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+                Choose your role to safely access the child pickup authorization system.
+                All blockchain functions are simulated in <span className="font-medium text-indigo-600">demo mode</span>.
+              </p>
+            </div>
+
+            {/* Role Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Staff Card */}
+              <RoleCard
+                title="Staff Dashboard"
+                emoji="👨‍🏫"
+                description="Validate pickups, view history, and manage student records"
+                gradient="from-blue-600 to-indigo-600"
+                onClick={() => handleMockLogin('staff')}
+              />
+
+              {/* Parent Card */}
+              <RoleCard
+                title="Parent Dashboard"
+                emoji="👨‍👩‍👧‍👦"
+                description="Generate pickup QR codes and authorize pickup persons"
+                gradient="from-indigo-600 to-purple-600"
+                onClick={() => handleMockLogin('parent')}
+              />
+
+              {/* Pickup Card */}
+              <RoleCard
+                title="Pickup Person"
+                emoji="🎫"
+                description="Access authorized pickup QR codes for child collection"
+                gradient="from-purple-600 to-pink-600"
+                onClick={() => handleMockLogin('pickup')}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Loading Spinner */}
+        {(address || selectedRole) && !role && (
+          <div className="flex justify-center py-16">
+            <div className="flex items-center gap-3 text-slate-600">
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-base font-medium">Detecting role...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Dashboards */}
+        {(address || selectedRole) && (role === "staff" || selectedRole === "staff") && (
+          <DashboardSection
+            emoji="👨‍🏫"
+            gradient="from-blue-500 to-indigo-600"
+            title="Staff Dashboard"
+            subtitle="Manage student pickups and system administration"
+          >
+            <StaffDashboard />
+          </DashboardSection>
+        )}
+
+        {(address || selectedRole) && (role === "parent" || selectedRole === "parent") && (
+          <DashboardSection
+            emoji="👨‍👩‍👧‍👦"
+            gradient="from-indigo-500 to-purple-600"
+            title="Parent Dashboard"
+            subtitle="Generate pickup QR codes and manage authorizations"
+          >
+            <ParentDashboard />
+          </DashboardSection>
+        )}
+
+        {(address || selectedRole) && (role === "pickup" || selectedRole === "pickup") && (
+          <DashboardSection
+            emoji="🎫"
+            gradient="from-purple-500 to-pink-600"
+            title="Pickup Person Dashboard"
+            subtitle="Access authorized pickup QR codes"
+          />
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
+
+/* ---------- Subcomponents ---------- */
+
+// Role Card
+function RoleCard({ title, emoji, description, gradient, onClick }: any) {
+  return (
+    <button
+      onClick={onClick}
+      className="group relative p-8 bg-white rounded-2xl border border-slate-200 shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 w-full"
+    >
+      <div className={`absolute inset-0 bg-gradient-to-r ${gradient} rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-300`}></div>
+      <div className="relative flex flex-col items-center text-center space-y-4">
+        <div className={`w-16 h-16 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center shadow-lg`}>
+          <span className="text-2xl">{emoji}</span>
+        </div>
+        <h3 className="text-xl font-bold text-slate-900">{title}</h3>
+        <p className="text-slate-600 text-sm leading-relaxed">{description}</p>
+        <div className="mt-4 px-5 py-2 bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 rounded-lg text-sm font-medium shadow-sm group-hover:from-white group-hover:to-white">
+          Access System
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Dashboard Section
+function DashboardSection({ emoji, gradient, title, subtitle, children }: any) {
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center gap-4 mb-4">
+        <div className={`w-12 h-12 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center shadow-md`}>
+          <span className="text-white text-xl">{emoji}</span>
+        </div>
+        <div>
+          <h2 className="text-2xl font-extrabold text-slate-900">{title}</h2>
+          <p className="text-slate-600">{subtitle}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+
+
+
+
+
+
