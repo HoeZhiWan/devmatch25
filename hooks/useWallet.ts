@@ -129,14 +129,31 @@ export const useWallet = () => {
   /**
    * Handles account changes
    */
-  const handleAccountsChanged = useCallback((accounts: string[]) => {
+  const handleAccountsChanged = useCallback(async (accounts: string[]) => {
     if (accounts.length === 0) {
       // Wallet disconnected
       disconnect();
     } else {
-      // Account switched
+      // Account switched - need to update provider and signer too
       const newAddress = accounts[0].toLowerCase();
-      updateWalletState({ address: newAddress });
+      
+      try {
+        const provider = createProvider();
+        if (provider) {
+          const signer = await provider.getSigner();
+          updateWalletState({ 
+            address: newAddress,
+            provider,
+            signer,
+            isConnected: true 
+          });
+        } else {
+          updateWalletState({ address: newAddress });
+        }
+      } catch (error) {
+        console.error('Error updating wallet state after account change:', error);
+        updateWalletState({ address: newAddress });
+      }
     }
   }, [disconnect, updateWalletState]);
 

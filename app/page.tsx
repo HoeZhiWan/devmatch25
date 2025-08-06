@@ -2,16 +2,11 @@
 
 import { useState } from 'react';
 import Image from "next/image";
-import MetaMaskLogin from "../components/MetaMaskLogin";
-import { useUserRole } from "../hooks/useUserRole";
+import FirebaseMetaMaskLogin from "../components/FirebaseMetaMaskLogin";
+import { useFirebaseAuth } from "../hooks/useFirebaseAuth";
 
 export default function Home() {
-  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
-  const { role, loading } = useUserRole(connectedAddress);
-
-  const handleLogin = (address: string) => {
-    setConnectedAddress(address);
-  };
+  const { user, isAuthenticated, logout, isLoading } = useFirebaseAuth();
 
   const handleRoleNavigation = (userRole: string) => {
     switch (userRole) {
@@ -26,6 +21,15 @@ export default function Home() {
         break;
       default:
         console.log('Unknown role:', userRole);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      console.log('User logged out successfully');
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
   };
 
@@ -47,11 +51,14 @@ export default function Home() {
               </div>
             </div>
             
-            {connectedAddress && (
+            {user && isAuthenticated && (
               <div className="text-right">
                 <div className="text-sm text-slate-600">Connected as</div>
                 <div className="font-mono text-sm bg-slate-100 px-3 py-1 rounded">
-                  {connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}
+                  {user.wallet.slice(0, 6)}...{user.wallet.slice(-4)}
+                </div>
+                <div className="text-xs text-slate-500 capitalize">
+                  {user.role}
                 </div>
               </div>
             )}
@@ -60,7 +67,7 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {!connectedAddress ? (
+        {!isAuthenticated ? (
           <div className="text-center space-y-12">
             {/* Hero Section */}
             <div className="space-y-6">
@@ -121,56 +128,56 @@ export default function Home() {
 
             {/* Login Section */}
             <div className="flex justify-center">
-              <MetaMaskLogin onLogin={handleLogin} />
+              <FirebaseMetaMaskLogin />
             </div>
           </div>
         ) : (
           <div className="max-w-2xl mx-auto">
-            {loading ? (
+            {isLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                <p className="mt-4 text-slate-600">Loading user role...</p>
+                <p className="mt-4 text-slate-600">Loading user profile...</p>
               </div>
-            ) : role ? (
+            ) : user ? (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-8 text-center space-y-6">
                 <div className="space-y-2">
                   <h2 className="text-3xl font-bold text-slate-800">Welcome!</h2>
                   <p className="text-slate-600">
-                    You are logged in as: <span className="font-semibold capitalize text-indigo-600">{role}</span>
+                    You are logged in as: <span className="font-semibold capitalize text-indigo-600">{user.role}</span>
                   </p>
+                  <div className="text-sm text-slate-500 font-mono bg-slate-100 px-3 py-1 rounded inline-block">
+                    {user.wallet.slice(0, 6)}...{user.wallet.slice(-4)}
+                  </div>
                 </div>
                 
                 <button
-                  onClick={() => handleRoleNavigation(role)}
+                  onClick={() => handleRoleNavigation(user.role)}
                   className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                 >
-                  Go to {role.charAt(0).toUpperCase() + role.slice(1)} Dashboard
+                  Go to {user.role.charAt(0).toUpperCase() + user.role.slice(1)} Dashboard
                 </button>
 
                 <div className="pt-4 border-t border-slate-200">
                   <button
-                    onClick={() => {
-                      setConnectedAddress(null);
-                      // You might want to add proper disconnect logic here
-                    }}
+                    onClick={handleLogout}
                     className="text-slate-500 hover:text-slate-700 text-sm"
+                    disabled={isLoading}
                   >
-                    Disconnect Wallet
+                    {isLoading ? 'Logging out...' : 'Logout'}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center space-y-4">
-                <h2 className="text-2xl font-semibold text-yellow-800">Role Assignment Required</h2>
+                <h2 className="text-2xl font-semibold text-yellow-800">Authentication Error</h2>
                 <p className="text-yellow-700">
-                  Your wallet is connected, but no role has been assigned yet. 
-                  Please complete the registration process or contact an administrator.
+                  There was an issue with your authentication. Please try connecting your wallet again.
                 </p>
                 <button
-                  onClick={() => setConnectedAddress(null)}
+                  onClick={handleLogout}
                   className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
                 >
-                  Try Different Wallet
+                  Try Again
                 </button>
               </div>
             )}

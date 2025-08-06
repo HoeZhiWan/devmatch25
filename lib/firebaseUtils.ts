@@ -1,29 +1,16 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from './firebase/config';
 
 // User roles type definition
 export type UserRole = 'staff' | 'parent' | 'pickup';
 
-// User interface for Firebase
+// User interface for Firebase (legacy - consider migrating to new database types)
 export interface User {
   walletAddress: string;
   role: UserRole;
   name: string;
   createdAt?: Date;
 }
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAhfsOSLGNk5S-SXYxvlTIFyLiJ1i3iP9k",
-    authDomain: "apu-watnameleh.firebaseapp.com",
-    projectId: "apu-watnameleh",
-    storageBucket: "apu-watnameleh.firebasestorage.app",
-    messagingSenderId: "966069106843",
-    appId: "1:966069106843:web:92dfe8702b8e079c53ee3e",
-    measurementId: "G-K19JQ6ZBRJ"
-};
-
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
 
 /**
  * Add a new user to Firebase
@@ -36,7 +23,7 @@ export async function addUserToFirebase(userData: User): Promise<boolean> {
     const userDoc = {
       ...userData,
       walletAddress: userData.walletAddress.toLowerCase(),
-      createdAt: new Date()
+      createdAt: Timestamp.now()
     };
 
     await setDoc(userDocRef, userDoc);
@@ -114,4 +101,4 @@ export async function getUsersByRole(role: UserRole): Promise<User[]> {
   }
 }
 
-export { firebaseApp, db };
+export { db };
