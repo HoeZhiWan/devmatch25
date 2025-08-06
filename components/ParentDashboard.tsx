@@ -1,7 +1,12 @@
-import React, { useState } from "react";
+'use client';
+
+import React, { useState, useEffect } from "react";
 import QRCodeGenerator from "./QRCodeGenerator";
 import { logAuthorization } from "../lib/web3";
-import { ethers } from "ethers";
+import { useWallet } from "../hooks/useWallet";
+import { useSignature } from "../hooks/useSignature";
+import { useUserRole } from "../hooks/useUserRole";
+import { AuthorizationMessage } from "../types/wallet";
 
 interface Child {
   id: string;
@@ -21,6 +26,16 @@ interface PickupPerson {
 }
 
 const ParentDashboard: React.FC = () => {
+  const { address, isConnected } = useWallet();
+  const { role, loading: roleLoading } = useUserRole(address);
+  const { 
+    signAuthorization, 
+    isLoading: signingLoading, 
+    error: signingError,
+    lastSignature,
+    lastMessage
+  } = useSignature();
+
   const [activeTab, setActiveTab] = useState<'pickup' | 'authorize' | 'manage'>('pickup');
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [qrValue, setQrValue] = useState<string | null>(null);
@@ -38,8 +53,8 @@ const ParentDashboard: React.FC = () => {
 
   // Mock data - in real app, fetch from database
   const [children] = useState<Child[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentWallet: '0x1234...5678' },
-    { id: 'STU002', name: 'Bob Smith', parentWallet: '0x8765...4321' },
+    { id: 'STU001', name: 'Alice Johnson', parentWallet: address || '0x1234...5678' },
+    { id: 'STU002', name: 'Bob Smith', parentWallet: address || '0x8765...4321' },
   ]);
 
   const [pickupPersons] = useState<PickupPerson[]>([
@@ -65,73 +80,135 @@ const ParentDashboard: React.FC = () => {
     },
   ]);
 
-  // Simulate parent MetaMask address (in real app, get from MetaMask)
-  const parentWallet = typeof window !== 'undefined' && (window as any).ethereum?.selectedAddress || "";
+  // Check if user is authorized parent
+  useEffect(() => {
+    if (!roleLoading && role !== 'parent' && role !== null) {
+      console.warn('User is not authorized as a parent');
+    }
+  }, [role, roleLoading]);
 
   const handlePickupMyChild = async () => {
+    if (!isConnected || !address) {
+      setBlockchainResult('Please connect your wallet first');
+      return;
+    }
+
+    if (!selectedChild) {
+      setBlockchainResult('Please select a child first');
+      return;
+    }
+
     setLoading(true);
     setBlockchainResult(null);
     setQrValue(null);
+    
     try {
-      // Demo mode - simulate blockchain interaction
-      console.log('Demo Mode: Simulating pickup authorization');
+      const selectedChildData = children.find(child => child.id === selectedChild);
+      if (!selectedChildData) {
+        throw new Error('Selected child not found');
+      }
+
+      // Create authorization using wallet integration
+      const authParams: Omit<AuthorizationMessage, 'parentWallet' | 'timestamp'> = {
+        pickupWallet: address, // Parent picking up their own child
+        studentName: selectedChildData.name,
+        studentId: selectedChildData.id,
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Valid for 24 hours
+      };
+
+      const signResult = await signAuthorization(authParams);
       
-      // Simulate message signing
-      const message = `Authorize pickup:child=${selectedChild};pickup=${parentWallet};validUntil=${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}`;
-      const mockSignature = `0x${Math.random().toString(16).substr(2, 64)}`;
-      
+      if (!signResult.success) {
+        throw new Error(signResult.error || 'Failed to sign authorization');
+      }
+
       // Simulate blockchain anchoring
-      const mockHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-      const txHash = await logAuthorization(mockHash);
-      setBlockchainResult(`Demo Mode: Anchored! Tx: ${txHash}`);
+      const authHash = `pickup-${Date.now()}-${Math.random().toString(16).substr(2, 8)}`;
+      const txHash = await logAuthorization(authHash);
+      setBlockchainResult(`Authorization signed and anchored! Tx: ${txHash}`);
       
       // Encode QR value
       setQrValue(JSON.stringify({
         childId: selectedChild,
-        pickupWallet: parentWallet,
+        childName: selectedChildData.name,
+        pickupWallet: address,
         validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        parentWallet,
-        signature: mockSignature,
-        hash: mockHash
+        parentWallet: address,
+        signature: signResult.signature,
+        message: signResult.message,
+        hash: authHash,
+        type: 'self-pickup'
       }));
+
     } catch (e: any) {
-      setBlockchainResult(`Demo Mode: ${e.message}`);
+      setBlockchainResult(`Error: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleAuthorizePickupPerson = async () => {
+    if (!isConnected || !address) {
+      setBlockchainResult('Please connect your wallet first');
+      return;
+    }
+
+    if (!pickupPersonName || !pickupPersonWallet || !startDate || !endDate) {
+      setBlockchainResult('Please fill in all required fields');
+      return;
+    }
+
     setLoading(true);
     setBlockchainResult(null);
     setAuthorizedQR(null);
+    
     try {
-      // Demo mode - simulate blockchain interaction
-      console.log('Demo Mode: Simulating pickup person authorization');
+      // Create authorization using wallet integration
+      const authParams: Omit<AuthorizationMessage, 'parentWallet' | 'timestamp'> = {
+        pickupWallet: pickupPersonWallet.toLowerCase(),
+        studentName: pickupPersonName, // Using pickup person name as placeholder
+        studentId: `AUTH-${Date.now()}`, // Generate unique ID for this authorization
+        startDate: startDate,
+        endDate: endDate
+      };
+
+      const signResult = await signAuthorization(authParams);
       
-      // Simulate message signing
-      const message = `Authorize pickup person:name=${pickupPersonName};wallet=${pickupPersonWallet};relationship=${relationship};phone=${phoneNumber};startDate=${startDate};endDate=${endDate}`;
-      const mockSignature = `0x${Math.random().toString(16).substr(2, 64)}`;
-      
+      if (!signResult.success) {
+        throw new Error(signResult.error || 'Failed to sign authorization');
+      }
+
       // Simulate blockchain anchoring
-      const mockHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-      const txHash = await logAuthorization(mockHash);
-      setBlockchainResult(`Demo Mode: Authorized! Tx: ${txHash}`);
+      const authHash = `auth-${Date.now()}-${Math.random().toString(16).substr(2, 8)}`;
+      const txHash = await logAuthorization(authHash);
+      setBlockchainResult(`Pickup person authorized! Tx: ${txHash}`);
       
       // Generate QR for pickup person
       setAuthorizedQR(JSON.stringify({
         pickupPersonName,
-        pickupPersonWallet,
+        pickupPersonWallet: pickupPersonWallet.toLowerCase(),
         relationship,
         phoneNumber,
         startDate,
         endDate,
-        parentWallet,
-        signature: mockSignature,
-        hash: mockHash
+        parentWallet: address,
+        signature: signResult.signature,
+        message: signResult.message,
+        hash: authHash,
+        type: 'pickup-person-auth'
       }));
+
+      // Clear form
+      setPickupPersonName("");
+      setPickupPersonWallet("");
+      setRelationship("");
+      setPhoneNumber("");
+      setStartDate("");
+      setEndDate("");
+
     } catch (e: any) {
-      setBlockchainResult(`Demo Mode: ${e.message}`);
+      setBlockchainResult(`Error: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -139,8 +216,35 @@ const ParentDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Navigation Tabs */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
+      {/* Wallet Connection Check */}
+      {!isConnected && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-center">
+          <div className="text-yellow-800 font-semibold mb-2">Wallet Connection Required</div>
+          <div className="text-yellow-600">Please connect your MetaMask wallet to access parent dashboard features.</div>
+        </div>
+      )}
+
+      {/* Role Authorization Check */}
+      {isConnected && role !== 'parent' && !roleLoading && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <div className="text-red-800 font-semibold mb-2">Access Restricted</div>
+          <div className="text-red-600">This dashboard is only available for users with parent role.</div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {signingError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="text-red-800 font-semibold mb-2">Signing Error</div>
+          <div className="text-red-600">{signingError}</div>
+        </div>
+      )}
+
+      {/* Main Dashboard Content */}
+      {isConnected && (role === 'parent' || roleLoading) && (
+        <>
+          {/* Navigation Tabs */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
         <div className="flex space-x-1">
           <button
             onClick={() => setActiveTab('pickup')}
@@ -461,6 +565,8 @@ const ParentDashboard: React.FC = () => {
             ))}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
