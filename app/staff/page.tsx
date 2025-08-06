@@ -1,3 +1,7 @@
+//this one got conflict
+//both version are included
+//need to resolve
+
 "use client";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebaseUtils"; // configure your Firebase
