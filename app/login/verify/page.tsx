@@ -1,4 +1,5 @@
 "use client";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -11,6 +12,9 @@ declare global {
 }
 
 export default function Login() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const role = searchParams.get("role");
   const [account, setAccount] = useState<string | null>(null);
 
   const handleMetaMaskLogin = async () => {
@@ -18,6 +22,9 @@ export default function Login() {
       try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         setAccount(accounts[0]);
+        if (role === "staff") {
+          router.push("/staff");
+        }
       } catch (error) {
         alert("MetaMask connection failed.");
       }

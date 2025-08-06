@@ -13,14 +13,14 @@ export default function RoleSelect() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-xs p-8">
         <Image
-            src="/logo.jpg"
-            alt="Logo"
-            width={100}
-            height={100}
-            className="mx-auto mb-8"
+          src="/logo.jpg"
+          alt="Logo"
+          width={100}
+          height={100}
+          className="mx-auto mb-8"
         />
         <h2 className="text-xl font-bold mb-6 text-center">
-            Choose Your Role
+          Choose Your Role
         </h2>
         <div className="flex flex-col gap-4">
           <button
