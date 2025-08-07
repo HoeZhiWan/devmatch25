@@ -133,7 +133,7 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
         try {
           // Try to login with any role first (backend will return the user's actual role)
           // Pass wallet details explicitly to avoid hook sync issues
-          const authUser = await auth.login('parent', { 
+          const authUser = await auth.login('staff', { 
             address: wallet.address!, 
             signer: wallet.signer! 
           });
@@ -216,7 +216,7 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
     
     try {
       // Pass wallet details explicitly to avoid hook sync issues
-      const authUser = await auth.login('parent', { 
+      const authUser = await auth.login('staff', { 
         address: wallet.address!, 
         signer: wallet.signer! 
       });
