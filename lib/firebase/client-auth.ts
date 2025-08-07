@@ -46,6 +46,37 @@ This request will not trigger a blockchain transaction or cost any gas fees.`;
   }
 
   /**
+   * Gets the user's role from Firebase without authentication
+   */
+  static async getUserRoleFromFirebase(walletAddress: string): Promise<'parent' | 'pickup' | 'staff' | null> {
+    try {
+      const response = await fetch('/api/auth/get-user-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wallet: walletAddress.toLowerCase()
+        }),
+      });
+
+      if (!response.ok) {
+        // If user not found, return null
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error('Failed to fetch user role');
+      }
+
+      const { role } = await response.json();
+      return role;
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return null;
+    }
+  }
+
+  /**
    * Verifies a wallet signature client-side (for immediate feedback)
    */
   static async verifyWalletSignature(

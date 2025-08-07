@@ -131,9 +131,9 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
         }
 
         try {
-          // Try to login with any role first (backend will return the user's actual role)
-          // Pass wallet details explicitly to avoid hook sync issues
-          const authUser = await auth.login('staff', { 
+          // Use 'parent' as fallback role - the authentication system will
+          // check Firebase to get the user's actual role before signing
+          const authUser = await auth.login('parent', { 
             address: wallet.address!, 
             signer: wallet.signer! 
           });
@@ -215,8 +215,9 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
     setAuthError(null);
     
     try {
-      // Pass wallet details explicitly to avoid hook sync issues
-      const authUser = await auth.login('staff', { 
+      // Use 'parent' as fallback role - the authentication system will
+      // check Firebase to get the user's actual role before signing
+      const authUser = await auth.login('parent', { 
         address: wallet.address!, 
         signer: wallet.signer! 
       });
@@ -241,6 +242,8 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
     setAuthError(null);
     
     try {
+      // For role selection (new user registration), use the selected role directly
+      // since the user doesn't exist in Firebase yet
       const authUser = await auth.login(role);
       
       setAuthState('authenticated');

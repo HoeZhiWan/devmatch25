@@ -14,7 +14,7 @@ interface UseFirebaseAuthReturn {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  login: (role: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }) => Promise<AuthUser>;
+  login: (fallbackRole: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -107,7 +107,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     }
   }, [walletHook]);
 
-  const login = useCallback(async (role: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }): Promise<AuthUser> => {
+  const login = useCallback(async (fallbackRole: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }): Promise<AuthUser> => {
     setIsLoading(true);
     setError(null);
 
@@ -129,9 +129,21 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
 
       const walletAddress = address;
 
-      // Create signed payload
+      // First, check if user exists and get their actual role from Firebase
+      let actualRole = fallbackRole;
+      try {
+        const userRole = await FirebaseAuthService.getUserRoleFromFirebase(walletAddress);
+        if (userRole) {
+          actualRole = userRole;
+        }
+      } catch (roleError) {
+        // If we can't get the role, continue with the fallback role
+        console.log('Could not fetch user role from Firebase, using fallback role:', fallbackRole);
+      }
+
+      // Create signed payload with the actual role
       const nonce = FirebaseAuthService.generateNonce();
-      const message = FirebaseAuthService.createSignatureMessage(walletAddress, role, nonce);
+      const message = FirebaseAuthService.createSignatureMessage(walletAddress, actualRole, nonce);
       const signature = await signer.signMessage(message);
       const timestamp = Math.floor(Date.now() / 1000);
 
@@ -139,7 +151,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
         wallet: walletAddress,
         message,
         signature,
-        role,
+        role: actualRole,
         timestamp,
         nonce
       };
@@ -160,9 +172,19 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
           // Show a temporary status while auto-registering
           setError('New user detected - creating account automatically...');
           
+          // For new users, use the fallback role for registration
+          const registrationPayload: SignaturePayload = {
+            wallet: walletAddress,
+            message: FirebaseAuthService.createSignatureMessage(walletAddress, fallbackRole, nonce),
+            signature: await signer.signMessage(FirebaseAuthService.createSignatureMessage(walletAddress, fallbackRole, nonce)),
+            role: fallbackRole,
+            timestamp,
+            nonce
+          };
+          
           // Attempt automatic registration
           try {
-            const authUser = await FirebaseAuthService.registerWithSignature(payload);
+            const authUser = await FirebaseAuthService.registerWithSignature(registrationPayload);
             setUser(authUser);
             setError(null); // Clear the temporary status message
             return authUser;

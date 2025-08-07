@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { BrowserMultiFormatReader, Result, Exception } from "@zxing/browser";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { Result, Exception } from "@zxing/library";
 
 interface QRCodeScannerProps {
   onScan?: (data: any) => void;
@@ -19,7 +20,7 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
       codeReader.decodeFromVideoDevice(
         undefined,
         videoRef.current,
-        async (result: Result | null, error: Exception | null) => {
+        async (result: Result | undefined, error: Exception | undefined) => {
           if (result && !isScanned.current) {
             const text = result.getText();
             console.log("✅ Scanned:", text);
