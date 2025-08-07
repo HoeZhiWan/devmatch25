@@ -62,8 +62,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifySig
       });
 
       if (!verificationResult.isValid) {
-        console.log(`Signature verification failed: ${verificationResult.error || 'Unknown error'}`);
-        
         return NextResponse.json({
           success: true,
           isValid: false,
@@ -73,9 +71,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifySig
       }
 
       const recoveredAddress = verificationResult.recoveredAddress!;
-
-      // Log verification attempt
-      console.log(`Signature verification: Expected=${normalizedExpectedAddress}, Recovered=${recoveredAddress}, Valid=true`);
 
       return NextResponse.json({
         success: true,

@@ -185,7 +185,6 @@ This request will not trigger a blockchain transaction or cost any gas fees.`;
   static async signOut(): Promise<void> {
     try {
       await signOut(auth);
-      console.log('User signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
       throw new Error('Failed to sign out');
@@ -234,7 +233,6 @@ This request will not trigger a blockchain transaction or cost any gas fees.`;
 export const signInWithWallet = async (customToken: string): Promise<boolean> => {
   try {
     await signInWithCustomToken(auth, customToken);
-    console.log('Successfully signed in with wallet');
     return true;
   } catch (error) {
     console.error('Error signing in with custom token:', error);

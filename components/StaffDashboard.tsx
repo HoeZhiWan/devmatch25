@@ -167,8 +167,6 @@ const StaffDashboard: React.FC = () => {
       relationship: '',
       phone: '',
     });
-
-    console.log('New student and parent added:', { newStudent, newParent });
   };
 
   // Filter pickup history based on selected date and student

@@ -14,7 +14,7 @@ interface UseFirebaseAuthReturn {
   isLoading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  login: (role: 'parent' | 'pickup' | 'staff') => Promise<AuthUser>;
+  login: (role: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -61,92 +61,22 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     setError(null);
   }, []);
 
-  // Helper function to wait for wallet to be ready
-  const waitForWalletReady = useCallback(async (maxWaitTime = 3000): Promise<{ address: string; signer: any }> => {
-    return new Promise((resolve, reject) => {
-      const startTime = Date.now();
-      let attemptCount = 0;
-      
-      const checkWallet = async () => {
-        attemptCount++;
-        const { address, signer, isConnected, provider } = walletHook;
-        
-        console.log(`Wallet check attempt ${attemptCount}:`, { 
-          address: !!address, 
-          signer: !!signer, 
-          isConnected,
-          provider: !!provider 
-        });
-        
-        // If we have address but no signer, try to create one
-        if (address && !signer && provider) {
-          try {
-            console.log('Attempting to create signer from existing provider...');
-            const newSigner = await provider.getSigner();
-            if (newSigner) {
-              console.log('Successfully created signer');
-              resolve({ address, signer: newSigner });
-              return;
-            }
-          } catch (error) {
-            console.log('Failed to create signer:', error);
-          }
-        }
-        
-        // If we have both address and signer, we're good
-        if (address && signer) {
-          console.log('Wallet is ready');
-          resolve({ address, signer });
-          return;
-        }
-        
-        // Check if we've exceeded max wait time
-        if (Date.now() - startTime > maxWaitTime) {
-          console.error('Wallet timeout. Final state:', { address: !!address, signer: !!signer, isConnected });
-          reject(new Error(`Wallet not ready. Please ensure MetaMask is connected and try again.`));
-          return;
-        }
-        
-        // Check again in 200ms
-        setTimeout(checkWallet, 200);
-      };
-      
-      checkWallet();
-    });
-  }, [walletHook]);
-
   const register = useCallback(async (role: 'parent' | 'pickup' | 'staff'): Promise<AuthUser> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      let walletAddress: string;
-      let signer: any;
-
-      try {
-        // First try the normal wait approach
-        const walletReady = await waitForWalletReady();
-        walletAddress = walletReady.address;
-        signer = walletReady.signer;
-      } catch (waitError) {
-        console.log('waitForWalletReady failed, trying fallback approach...');
-        
-        // Fallback: use current wallet state directly
-        const { address, signer: currentSigner } = walletHook;
-        
-        if (!address) {
-          throw new Error('No wallet address found. Please connect your wallet.');
-        }
-        
-        if (!currentSigner) {
-          throw new Error('No signer available. Please reconnect your wallet.');
-        }
-        
-        walletAddress = address;
-        signer = currentSigner;
+      // Check if wallet is connected and has required data
+      if (!walletHook.isConnected || !walletHook.address) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
       }
-      
-      console.log('Register - Using wallet:', { walletAddress, signer: !!signer });
+
+      if (!walletHook.signer) {
+        throw new Error('Wallet signer not available. Please reconnect your wallet.');
+      }
+
+      const walletAddress = walletHook.address;
+      const signer = walletHook.signer;
 
       // Create signed payload
       const nonce = FirebaseAuthService.generateNonce();
@@ -177,38 +107,27 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     }
   }, [walletHook]);
 
-  const login = useCallback(async (role: 'parent' | 'pickup' | 'staff'): Promise<AuthUser> => {
+  const login = useCallback(async (role: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }): Promise<AuthUser> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      let walletAddress: string;
-      let signer: any;
+      // Use provided wallet details or fall back to hook
+      const walletToUse = walletOverride || walletHook;
+      const isConnected = walletOverride ? true : walletHook.isConnected;
+      const address = walletOverride?.address || walletHook.address;
+      const signer = walletOverride?.signer || walletHook.signer;
 
-      try {
-        // First try the normal wait approach
-        const walletReady = await waitForWalletReady();
-        walletAddress = walletReady.address;
-        signer = walletReady.signer;
-      } catch (waitError) {
-        console.log('waitForWalletReady failed, trying fallback approach...');
-        
-        // Fallback: use current wallet state directly
-        const { address, signer: currentSigner } = walletHook;
-        
-        if (!address) {
-          throw new Error('No wallet address found. Please connect your wallet.');
-        }
-        
-        if (!currentSigner) {
-          throw new Error('No signer available. Please reconnect your wallet.');
-        }
-        
-        walletAddress = address;
-        signer = currentSigner;
+      // Check if wallet is connected and has required data
+      if (!isConnected || !address) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
       }
-      
-      console.log('Login - Using wallet:', { walletAddress, signer: !!signer });
+
+      if (!signer) {
+        throw new Error('Wallet signer not available. Please reconnect your wallet.');
+      }
+
+      const walletAddress = address;
 
       // Create signed payload
       const nonce = FirebaseAuthService.generateNonce();
@@ -233,13 +152,10 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
       } catch (loginError) {
         // Check if the error is due to user not found
         const errorMessage = loginError instanceof Error ? loginError.message : String(loginError);
-        console.log('Login failed, checking if user needs registration:', errorMessage);
         
         if (errorMessage.includes('User not found') || 
             errorMessage.includes('not found') || 
             errorMessage.includes('does not exist')) {
-          
-          console.log('User not found, attempting automatic registration...');
           
           // Show a temporary status while auto-registering
           setError('New user detected - creating account automatically...');
@@ -249,7 +165,6 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
             const authUser = await FirebaseAuthService.registerWithSignature(payload);
             setUser(authUser);
             setError(null); // Clear the temporary status message
-            console.log('Successfully registered new user automatically');
             return authUser;
           } catch (registerError) {
             const registerErrorMessage = registerError instanceof Error ? registerError.message : String(registerError);
@@ -269,7 +184,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [waitForWalletReady, walletHook]);
+  }, [walletHook]);
 
   const logout = useCallback(async (): Promise<void> => {
     setIsLoading(true);

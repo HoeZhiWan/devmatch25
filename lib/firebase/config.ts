@@ -13,14 +13,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debug: Log the configuration (remove in production)
-console.log('Firebase Config Debug:', {
-  hasApiKey: !!firebaseConfig.apiKey,
-  hasProjectId: !!firebaseConfig.projectId,
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain,
-});
-
 // Validate required configuration
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   console.error('Firebase configuration is missing required values:', firebaseConfig);
@@ -33,8 +25,5 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 // Initialize services
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-
-// Debug: Log successful initialization
-console.log('Firebase initialized successfully with project:', firebaseConfig.projectId);
 
 export default app;

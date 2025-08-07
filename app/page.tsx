@@ -23,7 +23,6 @@ export default function Home() {
   const handleLogout = async () => {
     try {
       await logout();
-      console.log('User logged out successfully');
     } catch (error) {
       console.error('Logout failed:', error);
     }

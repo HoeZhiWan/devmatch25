@@ -7,14 +7,6 @@ import admin from 'firebase-admin';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('Login request received:', { 
-      wallet: body.wallet?.slice(0, 6) + '...',
-      hasSignature: !!body.signature,
-      hasMessage: !!body.message,
-      hasNonce: !!body.nonce,
-      timestamp: body.timestamp 
-    });
-    
     const { wallet, signature, message, nonce, timestamp } = body;
 
     // Validate required fields
@@ -54,11 +46,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user from database
-    console.log('Checking database for user:', normalizedWallet);
     const userDoc = await adminDb.collection('users').doc(normalizedWallet).get();
     
     if (!userDoc.exists) {
-      console.log('User not found in database');
       return NextResponse.json(
         { error: 'User not found. Please register first.' },
         { status: 404 }
@@ -66,7 +56,6 @@ export async function POST(request: NextRequest) {
     }
 
     const userData = userDoc.data();
-    console.log('User found:', { wallet: normalizedWallet, role: userData?.role });
     
     // Check if message contains the correct wallet and role
     if (!message.includes(normalizedWallet) || !message.includes(userData?.role || '')) {
@@ -82,7 +71,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Create custom token with user's role
-    console.log('Creating custom token for:', { wallet: normalizedWallet, role: userData?.role });
     const customToken = await createCustomToken(normalizedWallet, { 
       role: userData?.role || 'user' 
     });
@@ -94,8 +82,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log('Login successful for:', normalizedWallet);
 
     return NextResponse.json({
       success: true,

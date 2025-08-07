@@ -17,9 +17,16 @@ import { WalletErrorCode, SUPPORTED_NETWORKS } from '../../types/wallet';
  * Checks if MetaMask is installed in the browser
  */
 export const isMetaMaskInstalled = (): boolean => {
-  return typeof window !== 'undefined' && 
-         typeof window.ethereum !== 'undefined' && 
-         Boolean((window.ethereum as MetaMaskEthereumProvider)?.isMetaMask);
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  
+  if (!window.ethereum) {
+    return false;
+  }
+  
+  const ethereum = window.ethereum as MetaMaskEthereumProvider;
+  return Boolean(ethereum?.isMetaMask);
 };
 
 /**
@@ -37,20 +44,38 @@ export const getMetaMaskProvider = (): MetaMaskEthereumProvider | null => {
  */
 export const createProvider = (): BrowserProvider | null => {
   try {
+    // Check if we're in browser environment
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
     const ethereum = getMetaMaskProvider();
-    if (!ethereum) return null;
-    return new BrowserProvider(ethereum);
+    if (!ethereum) {
+      return null;
+    }
+
+    const provider = new BrowserProvider(ethereum);
+    return provider;
   } catch (error) {
     console.error('Failed to create provider:', error);
     return null;
   }
 };
 
+// Track if we're currently processing a connection request
+let isConnecting = false;
+let connectionPromise: Promise<WalletConnectionResult> | null = null;
+
 /**
  * Connects to MetaMask wallet
  */
 export const connectWallet = async (): Promise<WalletConnectionResult> => {
   try {
+    // If already connecting, return the existing promise
+    if (isConnecting && connectionPromise) {
+      return await connectionPromise;
+    }
+
     if (!isMetaMaskInstalled()) {
       return {
         success: false,
@@ -66,25 +91,42 @@ export const connectWallet = async (): Promise<WalletConnectionResult> => {
       };
     }
 
-    // Request account access
-    const accounts = await ethereum.request({
-      method: 'eth_requestAccounts'
-    }) as string[];
+    // Set connection state and create promise
+    isConnecting = true;
+    
+    connectionPromise = (async () => {
+      try {
+        // Request account access
+        const accounts = await ethereum.request({
+          method: 'eth_requestAccounts'
+        }) as string[];
 
-    if (!accounts || accounts.length === 0) {
-      return {
-        success: false,
-        error: 'No accounts found. Please make sure MetaMask is unlocked.'
-      };
-    }
+        if (!accounts || accounts.length === 0) {
+          return {
+            success: false,
+            error: 'No accounts found. Please make sure MetaMask is unlocked.'
+          };
+        }
 
-    const address = accounts[0].toLowerCase();
-    return {
-      success: true,
-      address
-    };
+        const address = accounts[0].toLowerCase();
+        return {
+          success: true,
+          address
+        };
+      } finally {
+        // Always reset connection state
+        isConnecting = false;
+        connectionPromise = null;
+      }
+    })();
+
+    return await connectionPromise;
 
   } catch (error: any) {
+    // Reset connection state on error
+    isConnecting = false;
+    connectionPromise = null;
+    
     console.error('Failed to connect wallet:', error);
     
     // Handle specific MetaMask errors
@@ -92,6 +134,14 @@ export const connectWallet = async (): Promise<WalletConnectionResult> => {
       return {
         success: false,
         error: 'Connection was rejected. Please approve the connection request.'
+      };
+    }
+
+    // Handle the "already processing" error specifically
+    if (error.message && error.message.includes('Already processing eth_requestAccounts')) {
+      return {
+        success: false,
+        error: 'MetaMask is already processing a connection request. Please wait and try again.'
       };
     }
 
@@ -107,12 +157,23 @@ export const connectWallet = async (): Promise<WalletConnectionResult> => {
  */
 export const getConnectedAccounts = async (): Promise<string[]> => {
   try {
+    // Check if we're in browser environment
+    if (typeof window === 'undefined') {
+      return [];
+    }
+
     const ethereum = getMetaMaskProvider();
-    if (!ethereum) return [];
+    if (!ethereum) {
+      return [];
+    }
 
     const accounts = await ethereum.request({
       method: 'eth_accounts'
     }) as string[];
+
+    if (!accounts || !Array.isArray(accounts)) {
+      return [];
+    }
 
     return accounts.map(addr => addr.toLowerCase());
   } catch (error) {

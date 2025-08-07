@@ -27,7 +27,6 @@ export async function addUserToFirebase(userData: User): Promise<boolean> {
     };
 
     await setDoc(userDocRef, userDoc);
-    console.log('User added to Firebase:', userData.walletAddress);
     return true;
   } catch (error) {
     console.error('Error adding user to Firebase:', error);
