@@ -1,21 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import QRCodeScanner from "./QRCodeScanner";
 import { logPickup, verifyHash } from "../lib/web3";
-
-interface PickupHistory {
-  id: string;
-  studentId: string;
-  studentName: string;
-  pickupPerson: string;
-  timestamp: string;
-  status: 'completed' | 'pending';
-}
-
-interface Student {
-  id: string;
-  name: string;
-  parentWallet: string;
-}
+import { useFirebaseData } from "../hooks/useFirebaseData";
+import { useWallet } from "../hooks/useWallet";
+import type { Student, PickupLog } from "@/types/database";
 
 interface Parent {
   name: string;
@@ -25,6 +13,20 @@ interface Parent {
 }
 
 const StaffDashboard: React.FC = () => {
+  const { address, isConnected } = useWallet();
+  const {
+    students,
+    pickupLogs,
+    loading: firebaseLoading,
+    error: firebaseError,
+    createPickupLog,
+    markQRCodeAsUsed,
+    getQRCodeById,
+    getStudentById,
+    createStudent,
+    clearError: clearFirebaseError,
+  } = useFirebaseData();
+
   const [activeTab, setActiveTab] = useState<'pickup' | 'history' | 'users'>('pickup');
   const [studentId, setStudentId] = useState("");
   const [scannedQR, setScannedQR] = useState<any>(null);
@@ -44,33 +46,22 @@ const StaffDashboard: React.FC = () => {
     phone: '',
   });
 
-  // Available students for filtering (should be fetched from database)
-  const allStudents = ["All students", "Jenny", "Tom", "Sara", "Phoebe", "Alice Johnson", "Bob Smith"];
+  // Available students for filtering
+  const allStudents = ["All students", ...students.map(s => s.name)];
   
   // Available student IDs for pickup validation
-  const availableIds = ["123", "456", "789", "STU001", "STU002"];
+  const availableIds = students.map(s => s.id);
 
-  // Mock data - in real app, fetch from database
-  const [pickupHistory, setPickupHistory] = useState<PickupHistory[]>([
-    { id: '1', studentId: 'STU001', studentName: 'Alice Johnson', pickupPerson: '0x1234...5678', timestamp: '2024-01-15 14:30', status: 'completed' },
-    { id: '2', studentId: 'STU002', studentName: 'Bob Smith', pickupPerson: '0x8765...4321', timestamp: '2024-01-15 15:45', status: 'pending' },
-    { id: '3', studentId: '123', studentName: 'Jenny', pickupPerson: 'Parent', timestamp: '2025-08-05 17:40', status: 'completed' },
-    { id: '4', studentId: '456', studentName: 'Tom', pickupPerson: 'Guardian', timestamp: '2025-08-06 16:20', status: 'completed' },
-  ]);
+  // Filter pickup history based on selected date and student
+  const filteredHistory = pickupLogs.filter(item => {
+    const matchesDate = !selectedDate || item.timestamp.toISOString().includes(selectedDate);
+    const matchesStudent = selectedStudent === "All students" || item.studentId === selectedStudent;
+    return matchesDate && matchesStudent;
+  });
 
-  const [students, setStudents] = useState<Student[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentWallet: '0x1234...5678' },
-    { id: 'STU002', name: 'Bob Smith', parentWallet: '0x8765...4321' },
-    { id: '123', name: 'Jenny', parentWallet: '0x9999...1111' },
-    { id: '456', name: 'Tom', parentWallet: '0x8888...2222' },
-  ]);
-
-  const [parents, setParents] = useState<Parent[]>([
-    { name: 'John Johnson', walletAddress: '0x1234...5678', relationship: 'Father', phoneNumber: '+1234567890' },
-    { name: 'Sarah Smith', walletAddress: '0x8765...4321', relationship: 'Mother', phoneNumber: '+0987654321' },
-    { name: 'Mary Chen', walletAddress: '0x9999...1111', relationship: 'Mother', phoneNumber: '+1111222233' },
-    { name: 'David Wilson', walletAddress: '0x8888...2222', relationship: 'Father', phoneNumber: '+4444555566' },
-  ]);
+  const generateStudentId = () => {
+    return 'STU' + Math.random().toString(36).substr(2, 6).toUpperCase();
+  };
 
   const handleValidatePickup = async () => {
     setLoading(true);
@@ -98,6 +89,17 @@ const StaffDashboard: React.FC = () => {
         throw new Error("Pickup authorization has expired");
       }
 
+      // Verify QR code in Firebase
+      if (scannedQR.qrCodeId) {
+        const qrCode = await getQRCodeById(scannedQR.qrCodeId);
+        if (!qrCode) {
+          throw new Error("QR code not found in system");
+        }
+        if (qrCode.isUsed) {
+          throw new Error("QR code has already been used");
+        }
+      }
+
       // Demo mode - simulate blockchain verification
       console.log('Demo Mode: Simulating blockchain verification');
       const timestamp = await verifyHash(scannedQR.hash);
@@ -105,21 +107,30 @@ const StaffDashboard: React.FC = () => {
         throw new Error("Demo Mode: QR code not found on blockchain");
       }
 
+      // Mark QR code as used
+      if (scannedQR.qrCodeId) {
+        await markQRCodeAsUsed(scannedQR.qrCodeId);
+      }
+
+      // Create pickup log in Firebase
+      const logData = {
+        id: `log-${Date.now()}`,
+        studentId: studentId,
+        pickupWallet: scannedQR.pickupWallet || 'Unknown Person',
+        scannedBy: address || 'Unknown Staff',
+        status: 'success' as const,
+        qrCodeId: scannedQR.qrCodeId || '',
+      };
+
+      const logSuccess = await createPickupLog(logData);
+      if (!logSuccess) {
+        throw new Error("Failed to log pickup event");
+      }
+
       setValidationResult("✅ Demo Mode: Pickup authorized! Student can be released.");
       
       // Demo mode - simulate blockchain logging
       await logPickup(scannedQR.hash);
-
-      // Add to pickup history
-      const newPickup: PickupHistory = {
-        id: Date.now().toString(),
-        studentId: studentId,
-        studentName: students.find(s => s.id === studentId)?.name || 'Unknown Student',
-        pickupPerson: scannedQR.pickupWallet || 'Unknown Person',
-        timestamp: new Date().toLocaleString(),
-        status: 'completed'
-      };
-      setPickupHistory(prev => [newPickup, ...prev]);
       
     } catch (e: any) {
       setValidationResult(`❌ ${e.message}`);
@@ -135,53 +146,60 @@ const StaffDashboard: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
 
-    // Generate new student ID
-    const newStudentId = generateStudentId();
-    
-    // Add new student
-    const newStudent: Student = {
-      id: newStudentId,
-      name: formData.studentName,
-      parentWallet: formData.walletId
-    };
-    setStudents(prev => [...prev, newStudent]);
+    setLoading(true);
+    try {
+      // Generate new student ID
+      const newStudentId = generateStudentId();
+      
+      // Add new student
+      const studentData = {
+        id: newStudentId,
+        name: formData.studentName,
+        parentWallet: formData.walletId.toLowerCase(),
+      };
 
-    // Add new parent
-    const newParent: Parent = {
-      name: formData.parentName,
-      walletAddress: formData.walletId,
-      relationship: formData.relationship,
-      phoneNumber: formData.phone
-    };
-    setParents(prev => [...prev, newParent]);
+      const success = await createStudent(studentData);
+      if (!success) {
+        throw new Error('Failed to create student');
+      }
 
-    // Reset form
-    setFormData({
-      studentName: '',
-      parentName: '',
-      walletId: '',
-      relationship: '',
-      phone: '',
-    });
-  };
+      // Reset form
+      setFormData({
+        studentName: '',
+        parentName: '',
+        walletId: '',
+        relationship: '',
+        phone: '',
+      });
 
-  // Filter pickup history based on selected date and student
-  const filteredHistory = pickupHistory.filter(item => {
-    const matchesDate = !selectedDate || item.timestamp.includes(selectedDate);
-    const matchesStudent = selectedStudent === "All students" || item.studentName === selectedStudent;
-    return matchesDate && matchesStudent;
-  });
-
-  const generateStudentId = () => {
-    return 'STU' + Math.random().toString(36).substr(2, 6).toUpperCase();
+      setValidationResult("✅ Student and parent added successfully!");
+    } catch (error: any) {
+      setValidationResult(`❌ Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="space-y-8">
+      {/* Error Display */}
+      {firebaseError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="text-red-800 font-semibold mb-2">Firebase Error</div>
+          <div className="text-red-600">{firebaseError}</div>
+          <button
+            onClick={clearFirebaseError}
+            className="mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+          >
+            Clear Error
+          </button>
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
         <div className="flex space-x-1">
@@ -250,6 +268,7 @@ const StaffDashboard: React.FC = () => {
                 placeholder="Enter student ID (e.g., STU001, 123, 456)"
                 value={studentId}
                 onChange={e => setStudentId(e.target.value)}
+                disabled={firebaseLoading}
               />
               {studentId && !availableIds.includes(studentId.trim()) && (
                 <div className="mt-2 text-sm text-red-600">
@@ -260,6 +279,9 @@ const StaffDashboard: React.FC = () => {
                 <div className="mt-2 text-sm text-green-600">
                   ✅ Student ID found: {students.find(s => s.id === studentId)?.name || 'Student'}
                 </div>
+              )}
+              {firebaseLoading && (
+                <div className="mt-2 text-sm text-slate-500">Loading students...</div>
               )}
             </div>
 
@@ -293,7 +315,7 @@ const StaffDashboard: React.FC = () => {
             <button
               className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
               onClick={handleValidatePickup}
-              disabled={loading || !studentId || !scannedQR}
+              disabled={loading || !studentId || !scannedQR || firebaseLoading}
             >
               {loading ? (
                 <div className="flex items-center justify-center space-x-2">
@@ -359,6 +381,7 @@ const StaffDashboard: React.FC = () => {
                 className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-200 focus:border-green-500 bg-white transition-all duration-200"
                 value={selectedStudent}
                 onChange={(e) => setSelectedStudent(e.target.value)}
+                disabled={firebaseLoading}
               >
                 {allStudents.map(student => (
                   <option key={student} value={student}>
@@ -386,7 +409,12 @@ const StaffDashboard: React.FC = () => {
           
           {/* History Results */}
           <div className="space-y-4">
-            {filteredHistory.length === 0 ? (
+            {firebaseLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                <p className="mt-2 text-slate-600">Loading pickup history...</p>
+              </div>
+            ) : filteredHistory.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-slate-400 text-2xl">📋</span>
@@ -397,7 +425,7 @@ const StaffDashboard: React.FC = () => {
             ) : (
               <>
                 <div className="text-sm text-slate-600 mb-4">
-                  Showing {filteredHistory.length} of {pickupHistory.length} pickup records
+                  Showing {filteredHistory.length} of {pickupLogs.length} pickup records
                 </div>
                 {filteredHistory.map((pickup) => (
                   <div key={pickup.id} className="bg-slate-50 rounded-xl p-6 border border-slate-200">
@@ -408,19 +436,23 @@ const StaffDashboard: React.FC = () => {
                             <span className="text-white text-sm">👤</span>
                           </div>
                           <div>
-                            <div className="font-bold text-slate-900 text-lg">{pickup.studentName}</div>
+                            <div className="font-bold text-slate-900 text-lg">
+                              {students.find(s => s.id === pickup.studentId)?.name || 'Unknown Student'}
+                            </div>
                             <div className="text-sm text-slate-600">ID: {pickup.studentId}</div>
                           </div>
                         </div>
                         <div className="text-sm text-slate-600">
-                          Picked up by: {pickup.pickupPerson}
+                          Picked up by: {pickup.pickupWallet}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm text-slate-500 mb-2">{pickup.timestamp}</div>
+                        <div className="text-sm text-slate-500 mb-2">{pickup.timestamp.toLocaleString()}</div>
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          pickup.status === 'completed' 
+                          pickup.status === 'success' 
                             ? 'bg-green-100 text-green-800' 
+                            : pickup.status === 'failed'
+                            ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
                           {pickup.status}
@@ -535,14 +567,19 @@ const StaffDashboard: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={!isFormValid}
+                disabled={!isFormValid || loading}
                 className={`w-full py-4 px-6 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl ${
-                  isFormValid 
+                  isFormValid && !loading
                     ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700' 
                     : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                {isFormValid ? (
+                {loading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Adding Student...</span>
+                  </div>
+                ) : isFormValid ? (
                   <div className="flex items-center justify-center space-x-2">
                     <span>✅</span>
                     <span>Add Student & Parent</span>
@@ -555,6 +592,19 @@ const StaffDashboard: React.FC = () => {
                 )}
               </button>
             </form>
+
+            {validationResult && (
+              <div className={`mt-4 p-4 rounded-xl border ${
+                validationResult.startsWith('✅') 
+                  ? 'bg-green-50 border-green-200 text-green-800' 
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <span>{validationResult.startsWith('✅') ? '✅' : '❌'}</span>
+                  <span>{validationResult}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Current Students */}
@@ -570,24 +620,39 @@ const StaffDashboard: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              {students.map((student) => (
-                <div key={student.id} className="bg-slate-50 rounded-xl p-6 border border-slate-200">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center">
-                        <span className="text-white text-sm">👤</span>
+              {firebaseLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mx-auto"></div>
+                  <p className="mt-2 text-slate-600">Loading students...</p>
+                </div>
+              ) : students.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-slate-400 text-2xl">📚</span>
+                  </div>
+                  <h4 className="text-lg font-medium text-slate-600 mb-2">No students found</h4>
+                  <p className="text-slate-500">Add students using the form above.</p>
+                </div>
+              ) : (
+                students.map((student) => (
+                  <div key={student.id} className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white text-sm">👤</span>
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 text-lg">{student.name}</div>
+                          <div className="text-sm text-slate-600">ID: {student.id}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-slate-900 text-lg">{student.name}</div>
-                        <div className="text-sm text-slate-600">ID: {student.id}</div>
+                      <div className="text-sm text-slate-500">
+                        Parent: {student.parentWallet}
                       </div>
-                    </div>
-                    <div className="text-sm text-slate-500">
-                      Parent: {student.parentWallet}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

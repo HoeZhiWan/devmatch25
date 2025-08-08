@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useFirebaseAuth } from "../../hooks/useFirebaseAuth";
+import { useFirebaseData } from "../../hooks/useFirebaseData";
 import ParentDashboard from "../../components/ParentDashboard";
 import StaffDashboard from "../../components/StaffDashboard";
 import PickupDashboard from "../../components/PickupDashboard";
@@ -10,6 +11,7 @@ import PickupDashboard from "../../components/PickupDashboard";
 export default function Dashboard() {
   const router = useRouter();
   const { user, isAuthenticated, logout, isLoading } = useFirebaseAuth();
+  const { clearError: clearFirebaseError } = useFirebaseData();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -21,6 +23,7 @@ export default function Dashboard() {
   const handleLogout = async () => {
     try {
       await logout();
+      clearFirebaseError(); // Clear any Firebase errors on logout
       router.push('/');
     } catch (error) {
       console.error('Logout failed:', error);

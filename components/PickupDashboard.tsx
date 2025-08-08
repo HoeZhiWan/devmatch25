@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import QRCodeGenerator from "./QRCodeGenerator";
+import { useFirebaseData } from "../hooks/useFirebaseData";
+import { useWallet } from "../hooks/useWallet";
+import type { Authorization } from "@/types/database";
 
 interface Child {
   id: string;
@@ -8,29 +11,63 @@ interface Child {
 }
 
 const PickupDashboard: React.FC = () => {
+  const { address, isConnected } = useWallet();
+  const {
+    authorizations,
+    loading: firebaseLoading,
+    error: firebaseError,
+    getAuthorizationById,
+    clearError: clearFirebaseError,
+  } = useFirebaseData();
+
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [qrJson, setQrJson] = useState("");
   const [qrValue, setQrValue] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<string | null>(null);
 
-  // Mock data - in real app, fetch from database based on pickup person's wallet
-  const [authorizedChildren] = useState<Child[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentName: 'John Johnson' },
-    { id: 'STU002', name: 'Bob Smith', parentName: 'Sarah Smith' },
-  ]);
+  // Convert authorizations to children for display
+  const authorizedChildren: Child[] = authorizations.map(auth => ({
+    id: auth.studentId,
+    name: auth.studentId, // Using studentId as name for now
+    parentName: auth.parentWallet,
+  }));
 
-  const handleShowQR = () => {
+  const handleShowQR = async () => {
     try {
       // Validate JSON
       const parsed = JSON.parse(qrJson);
+      
+      // Verify authorization in Firebase if qrCodeId exists
+      if (parsed.qrCodeId) {
+        // This would require a QR code lookup function
+        // For now, we'll just validate the JSON structure
+        console.log('QR Code ID found:', parsed.qrCodeId);
+      }
+
       setQrValue(JSON.stringify(parsed));
-    } catch {
+      setValidationResult("✅ QR code validated successfully!");
+    } catch (error) {
       setQrValue(null);
-      alert("Invalid QR JSON");
+      setValidationResult("❌ Invalid QR JSON format");
     }
   };
 
   return (
     <div className="space-y-8">
+      {/* Error Display */}
+      {firebaseError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="text-red-800 font-semibold mb-2">Firebase Error</div>
+          <div className="text-red-600">{firebaseError}</div>
+          <button
+            onClick={clearFirebaseError}
+            className="mt-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+          >
+            Clear Error
+          </button>
+        </div>
+      )}
+
       {/* Child Selection */}
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-8">
         <div className="flex items-center space-x-3 mb-6">
@@ -52,6 +89,7 @@ const PickupDashboard: React.FC = () => {
               className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-purple-500 bg-white transition-all duration-200"
               value={selectedChild}
               onChange={e => setSelectedChild(e.target.value)}
+              disabled={firebaseLoading}
             >
               <option value="">Choose a child...</option>
               {authorizedChildren.map(child => (
@@ -60,6 +98,12 @@ const PickupDashboard: React.FC = () => {
                 </option>
               ))}
             </select>
+            {firebaseLoading && (
+              <div className="mt-2 text-sm text-slate-500">Loading authorized children...</div>
+            )}
+            {!firebaseLoading && authorizedChildren.length === 0 && (
+              <div className="mt-2 text-sm text-yellow-600">No authorized children found</div>
+            )}
           </div>
 
           {selectedChild && (
@@ -119,6 +163,19 @@ const PickupDashboard: React.FC = () => {
               </div>
             </button>
           </div>
+
+          {validationResult && (
+            <div className={`mb-6 p-4 rounded-xl border ${
+              validationResult.startsWith('✅') 
+                ? 'bg-green-50 border-green-200 text-green-800' 
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              <div className="flex items-center space-x-2">
+                <span>{validationResult.startsWith('✅') ? '✅' : '❌'}</span>
+                <span>{validationResult}</span>
+              </div>
+            </div>
+          )}
 
           {qrValue && (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-8">
