@@ -7,8 +7,8 @@ interface StaffData {
   name: string;
   role: string;
   walletAddress: string;
-  createdAt?: admin.firestore.Timestamp;
-  updatedAt?: admin.firestore.Timestamp;
+  createdAt?: admin.firestore.FieldValue | admin.firestore.Timestamp;
+  updatedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp;
   isActive?: boolean;
 }
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Build query
-    let query = adminDb.collection('staff');
+    let query: any = adminDb.collection('staff');
 
     // Apply filters
     if (role) {
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform documents to StaffDocument format
-    const staff: StaffDocument[] = snapshot.docs.map(doc => {
+    const staff: StaffDocument[] = snapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,

@@ -8,8 +8,8 @@ interface ParentData {
   contactNumber: string;
   studentIds: string[];
   walletAddress: string;
-  createdAt?: admin.firestore.Timestamp;
-  updatedAt?: admin.firestore.Timestamp;
+  createdAt?: admin.firestore.FieldValue | admin.firestore.Timestamp;
+  updatedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp;
   isActive?: boolean;
 }
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Build query
-    let query = adminDb.collection('parents');
+    let query: any = adminDb.collection('parents');
 
     // Apply filters
     if (walletAddress) {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform documents to ParentDocument format
-    const parents: ParentDocument[] = snapshot.docs.map(doc => {
+    const parents: ParentDocument[] = snapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,

@@ -7,8 +7,8 @@ interface StudentData {
   name: string;
   grade: string;
   parentId: string;
-  createdAt?: admin.firestore.Timestamp;
-  updatedAt?: admin.firestore.Timestamp;
+  createdAt?: admin.firestore.FieldValue | admin.firestore.Timestamp;
+  updatedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp;
   isActive?: boolean;
 }
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Build query
-    let query = adminDb.collection('students');
+    let query: any = adminDb.collection('students');
 
     // Apply filters
     if (grade) {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform documents to StudentDocument format
-    const students: StudentDocument[] = snapshot.docs.map(doc => {
+    const students: StudentDocument[] = snapshot.docs.map((doc: any) => {
       const data = doc.data();
       return {
         id: doc.id,
