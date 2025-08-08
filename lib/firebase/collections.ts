@@ -9,7 +9,9 @@ import {
   orderBy,
   Timestamp,
   updateDoc,
-  deleteDoc 
+  deleteDoc,
+  startAt,
+  endAt
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Student, Authorization, PickupLog, UserSession, QRCodeData } from '@/types/database';
@@ -80,6 +82,53 @@ export const getStudentById = async (studentId: string): Promise<Student | null>
   }
 };
 
+// NEW: Get all students for staff dashboard
+export const getAllStudents = async (): Promise<Student[]> => {
+  try {
+    const q = query(studentsCollection, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        parentWallet: data.parentWallet,
+        createdAt: data.createdAt.toDate(),
+      };
+    });
+  } catch (error) {
+    console.error('Error getting all students:', error);
+    return [];
+  }
+};
+
+// NEW: Update student information
+export const updateStudent = async (studentId: string, updates: Partial<Student>): Promise<boolean> => {
+  try {
+    const studentDoc = doc(studentsCollection, studentId);
+    await updateDoc(studentDoc, {
+      ...updates,
+      parentWallet: updates.parentWallet?.toLowerCase(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating student:', error);
+    return false;
+  }
+};
+
+// NEW: Delete student
+export const deleteStudent = async (studentId: string): Promise<boolean> => {
+  try {
+    const studentDoc = doc(studentsCollection, studentId);
+    await deleteDoc(studentDoc);
+    return true;
+  } catch (error) {
+    console.error('Error deleting student:', error);
+    return false;
+  }
+};
+
 // Authorization operations
 export const createAuthorization = async (auth: Omit<Authorization, 'id' | 'createdAt'>): Promise<string | null> => {
   try {
@@ -129,13 +178,15 @@ export const getAuthorizationsByPickupWallet = async (pickupWallet: string): Pro
 
 export const getAuthorizationsByParent = async (parentWallet: string): Promise<Authorization[]> => {
   try {
+    // Temporary fix: Remove orderBy to avoid composite index requirement
+    // TODO: Add back orderBy once index is created
     const q = query(
       authorizationsCollection,
-      where('parentWallet', '==', parentWallet.toLowerCase()),
-      orderBy('createdAt', 'desc')
+      where('parentWallet', '==', parentWallet.toLowerCase())
+      // orderBy('createdAt', 'desc') // Temporarily removed
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => {
+    const authorizations = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -150,9 +201,40 @@ export const getAuthorizationsByParent = async (parentWallet: string): Promise<A
         isActive: data.isActive,
       };
     });
+    
+    // Sort in memory instead of in query
+    return authorizations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   } catch (error) {
     console.error('Error getting authorizations by parent:', error);
     return [];
+  }
+};
+
+// NEW: Get authorization by ID
+export const getAuthorizationById = async (authId: string): Promise<Authorization | null> => {
+  try {
+    const authDoc = doc(authorizationsCollection, authId);
+    const authSnap = await getDoc(authDoc);
+    
+    if (authSnap.exists()) {
+      const data = authSnap.data();
+      return {
+        id: authSnap.id,
+        studentId: data.studentId,
+        parentWallet: data.parentWallet,
+        pickupWallet: data.pickupWallet,
+        signature: data.signature,
+        message: data.message,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        createdAt: data.createdAt.toDate(),
+        isActive: data.isActive,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting authorization by ID:', error);
+    return null;
   }
 };
 
@@ -199,6 +281,17 @@ export const getUserSession = async (walletAddress: string): Promise<UserSession
     return null;
   } catch (error) {
     console.error('Error getting user session:', error);
+    return null;
+  }
+};
+
+// NEW: Get user role
+export const getUserRole = async (walletAddress: string): Promise<string | null> => {
+  try {
+    const session = await getUserSession(walletAddress);
+    return session?.role || null;
+  } catch (error) {
+    console.error('Error getting user role:', error);
     return null;
   }
 };
@@ -317,6 +410,84 @@ export const getPickupLogsByStudent = async (studentId: string): Promise<PickupL
     });
   } catch (error) {
     console.error('Error getting pickup logs by student:', error);
+    return [];
+  }
+};
+
+// NEW: Get all pickup logs for staff dashboard
+export const getAllPickupLogs = async (): Promise<PickupLog[]> => {
+  try {
+    const q = query(pickupLogsCollection, orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        studentId: data.studentId,
+        pickupWallet: data.pickupWallet,
+        scannedBy: data.scannedBy,
+        timestamp: data.timestamp.toDate(),
+        status: data.status,
+        qrCodeId: data.qrCodeId,
+      };
+    });
+  } catch (error) {
+    console.error('Error getting all pickup logs:', error);
+    return [];
+  }
+};
+
+// NEW: Get pickup logs by date range
+export const getPickupLogsByDateRange = async (startDate: Date, endDate: Date): Promise<PickupLog[]> => {
+  try {
+    const q = query(
+      pickupLogsCollection,
+      where('timestamp', '>=', Timestamp.fromDate(startDate)),
+      where('timestamp', '<=', Timestamp.fromDate(endDate)),
+      orderBy('timestamp', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        studentId: data.studentId,
+        pickupWallet: data.pickupWallet,
+        scannedBy: data.scannedBy,
+        timestamp: data.timestamp.toDate(),
+        status: data.status,
+        qrCodeId: data.qrCodeId,
+      };
+    });
+  } catch (error) {
+    console.error('Error getting pickup logs by date range:', error);
+    return [];
+  }
+};
+
+// NEW: Get pickup logs by staff member
+export const getPickupLogsByStaff = async (staffWallet: string): Promise<PickupLog[]> => {
+  try {
+    const q = query(
+      pickupLogsCollection,
+      where('scannedBy', '==', staffWallet.toLowerCase()),
+      orderBy('timestamp', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        studentId: data.studentId,
+        pickupWallet: data.pickupWallet,
+        scannedBy: data.scannedBy,
+        timestamp: data.timestamp.toDate(),
+        status: data.status,
+        qrCodeId: data.qrCodeId,
+      };
+    });
+  } catch (error) {
+    console.error('Error getting pickup logs by staff:', error);
     return [];
   }
 };
