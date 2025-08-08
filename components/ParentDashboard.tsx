@@ -5,7 +5,6 @@ import QRCodeGenerator from "./QRCodeGenerator";
 import { logAuthorization } from "../lib/web3";
 import { useWallet } from "../hooks/useWallet";
 import { useSignature } from "../hooks/useSignature";
-import { useUserRole } from "../hooks/useUserRole";
 import { AuthorizationMessage } from "../types/wallet";
 
 interface Child {
@@ -27,7 +26,6 @@ interface PickupPerson {
 
 const ParentDashboard: React.FC = () => {
   const { address, isConnected } = useWallet();
-  const { role, loading: roleLoading } = useUserRole(address);
   const { 
     signAuthorization, 
     isLoading: signingLoading, 
@@ -79,13 +77,6 @@ const ParentDashboard: React.FC = () => {
       isActive: true
     },
   ]);
-
-  // Check if user is authorized parent
-  useEffect(() => {
-    if (!roleLoading && role !== 'parent' && role !== null) {
-      console.warn('User is not authorized as a parent');
-    }
-  }, [role, roleLoading]);
 
   const handlePickupMyChild = async () => {
     if (!isConnected || !address) {
@@ -216,22 +207,6 @@ const ParentDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Wallet Connection Check */}
-      {!isConnected && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-center">
-          <div className="text-yellow-800 font-semibold mb-2">Wallet Connection Required</div>
-          <div className="text-yellow-600">Please connect your MetaMask wallet to access parent dashboard features.</div>
-        </div>
-      )}
-
-      {/* Role Authorization Check */}
-      {isConnected && role !== 'parent' && !roleLoading && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <div className="text-red-800 font-semibold mb-2">Access Restricted</div>
-          <div className="text-red-600">This dashboard is only available for users with parent role.</div>
-        </div>
-      )}
-
       {/* Error Display */}
       {signingError && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
@@ -241,7 +216,7 @@ const ParentDashboard: React.FC = () => {
       )}
 
       {/* Main Dashboard Content */}
-      {isConnected && (role === 'parent' || roleLoading) && (
+      {isConnected && (
         <>
           {/* Navigation Tabs */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
@@ -337,19 +312,6 @@ const ParentDashboard: React.FC = () => {
                 </div>
               )}
             </button>
-
-            {blockchainResult && (
-              <div className={`p-4 rounded-xl border ${
-                blockchainResult.startsWith('Anchored') 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50 border-red-200 text-red-800'
-              }`}>
-                <div className="flex items-center space-x-2">
-                  <span>{blockchainResult.startsWith('Anchored') ? '✅' : '❌'}</span>
-                  <span>{blockchainResult}</span>
-                </div>
-              </div>
-            )}
 
             {qrValue && (
               <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-200 p-8">
@@ -475,37 +437,10 @@ const ParentDashboard: React.FC = () => {
               ) : (
                 <div className="flex items-center justify-center space-x-2">
                   <span>🔐</span>
-                  <span>Authorize & Generate QR</span>
+                  <span>Authorize</span>
                 </div>
               )}
             </button>
-
-            {blockchainResult && (
-              <div className={`p-4 rounded-xl border ${
-                blockchainResult.startsWith('Authorized') 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50 border-red-200 text-red-800'
-              }`}>
-                <div className="flex items-center space-x-2">
-                  <span>{blockchainResult.startsWith('Authorized') ? '✅' : '❌'}</span>
-                  <span>{blockchainResult}</span>
-                </div>
-              </div>
-            )}
-
-            {authorizedQR && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-8">
-                <div className="text-center">
-                  <h4 className="text-xl font-bold text-green-700 mb-4">Pickup Person QR Code</h4>
-                  <div className="bg-white rounded-xl p-6 inline-block shadow-lg">
-                    <QRCodeGenerator value={authorizedQR} />
-                  </div>
-                  <p className="mt-4 text-sm text-green-600">
-                    Send this QR code to the pickup person
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

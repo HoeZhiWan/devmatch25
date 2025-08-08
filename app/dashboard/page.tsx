@@ -130,9 +130,6 @@ export default function Dashboard() {
               <h2 className="text-3xl font-bold text-slate-900">
                 {user.role.charAt(0).toUpperCase() + user.role.slice(1)} Dashboard
               </h2>
-              <p className="text-slate-600">
-                Welcome back! Here's your personalized interface for managing child pickups.
-              </p>
             </div>
           </div>
         </div>
