@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import QRCodeGenerator from "./QRCodeGenerator";
+import ParentNotifications from "./ParentNotifications";
 import { logAuthorization } from "../lib/web3";
 import { useWallet } from "../hooks/useWallet";
 import { useSignature } from "../hooks/useSignature";
@@ -36,7 +37,7 @@ const ParentDashboard: React.FC = () => {
     lastMessage
   } = useSignature();
 
-  const [activeTab, setActiveTab] = useState<'pickup' | 'authorize' | 'manage'>('pickup');
+  const [activeTab, setActiveTab] = useState<'pickup' | 'authorize' | 'manage' | 'notifications'>('pickup');
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [qrValue, setQrValue] = useState<string | null>(null);
   const [blockchainResult, setBlockchainResult] = useState<string | null>(null);
@@ -283,6 +284,19 @@ const ParentDashboard: React.FC = () => {
             <div className="flex items-center justify-center space-x-2">
               <span>👥</span>
               <span>Manage Pickup Persons</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 ${
+              activeTab === 'notifications' 
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg' 
+                : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <span>🔔</span>
+              <span>Notifications</span>
             </div>
           </button>
         </div>
@@ -565,6 +579,11 @@ const ParentDashboard: React.FC = () => {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Notifications Tab */}
+      {activeTab === 'notifications' && (
+        <ParentNotifications />
       )}
       </>
       )}

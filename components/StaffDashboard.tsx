@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import QRCodeScanner from "./QRCodeScanner";
+import ReminderManager from "./ReminderManager";
 import { logPickup, verifyHash } from "../lib/web3";
 
 interface PickupHistory {
@@ -25,7 +26,7 @@ interface Parent {
 }
 
 const StaffDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pickup' | 'history' | 'users'>('pickup');
+  const [activeTab, setActiveTab] = useState<'pickup' | 'history' | 'users' | 'reminders'>('pickup');
   const [studentId, setStudentId] = useState("");
   const [scannedQR, setScannedQR] = useState<any>(null);
   const [validationResult, setValidationResult] = useState<string | null>(null);
@@ -222,6 +223,19 @@ const StaffDashboard: React.FC = () => {
             <div className="flex items-center justify-center space-x-2">
               <span>👥</span>
               <span>Manage Users</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('reminders')}
+            className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 ${
+              activeTab === 'reminders' 
+                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg' 
+                : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <span>🔔</span>
+              <span>Reminders</span>
             </div>
           </button>
         </div>
@@ -591,6 +605,11 @@ const StaffDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reminders Tab */}
+      {activeTab === 'reminders' && (
+        <ReminderManager />
       )}
     </div>
   );

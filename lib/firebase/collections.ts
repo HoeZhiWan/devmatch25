@@ -9,10 +9,11 @@ import {
   orderBy,
   Timestamp,
   updateDoc,
-  deleteDoc 
+  deleteDoc,
+  limit
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Student, Authorization, PickupLog, UserSession, QRCodeData } from '@/types/database';
+import type { Student, Authorization, PickupLog, UserSession, QRCodeData, SchoolSchedule, ReminderNotification } from '@/types/database';
 
 // Collection references
 export const studentsCollection = collection(db, 'students');
@@ -20,6 +21,8 @@ export const authorizationsCollection = collection(db, 'authorizations');
 export const pickupLogsCollection = collection(db, 'pickup-logs');
 export const userSessionsCollection = collection(db, 'user-sessions');
 export const qrCodesCollection = collection(db, 'qr-codes');
+export const schoolSchedulesCollection = collection(db, 'school-schedules');
+export const reminderNotificationsCollection = collection(db, 'reminder-notifications');
 
 // Student operations
 export const createStudent = async (student: Omit<Student, 'createdAt'>) => {
@@ -317,6 +320,181 @@ export const getPickupLogsByStudent = async (studentId: string): Promise<PickupL
     });
   } catch (error) {
     console.error('Error getting pickup logs by student:', error);
+    return [];
+  }
+};
+
+// School Schedule operations
+export const createSchoolSchedule = async (schedule: Omit<SchoolSchedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> => {
+  try {
+    const scheduleDoc = doc(schoolSchedulesCollection);
+    await setDoc(scheduleDoc, {
+      ...schedule,
+      createdBy: schedule.createdBy.toLowerCase(),
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      id: scheduleDoc.id,
+    });
+    return scheduleDoc.id;
+  } catch (error) {
+    console.error('Error creating school schedule:', error);
+    return null;
+  }
+};
+
+export const getActiveSchoolSchedule = async (): Promise<SchoolSchedule | null> => {
+  try {
+    const q = query(
+      schoolSchedulesCollection,
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      const data = doc.data();
+      return {
+        id: doc.id,
+        schoolName: data.schoolName,
+        finishTime: data.finishTime,
+        timezone: data.timezone,
+        isActive: data.isActive,
+        createdBy: data.createdBy,
+        createdAt: data.createdAt.toDate(),
+        updatedAt: data.updatedAt.toDate(),
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting active school schedule:', error);
+    return null;
+  }
+};
+
+export const updateSchoolSchedule = async (scheduleId: string, updates: Partial<SchoolSchedule>): Promise<boolean> => {
+  try {
+    const scheduleDoc = doc(schoolSchedulesCollection, scheduleId);
+    await updateDoc(scheduleDoc, {
+      ...updates,
+      updatedAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating school schedule:', error);
+    return false;
+  }
+};
+
+// Reminder Notification operations
+export const createReminderNotification = async (notification: Omit<ReminderNotification, 'id' | 'createdAt'>): Promise<string | null> => {
+  try {
+    const notificationDoc = doc(reminderNotificationsCollection);
+    await setDoc(notificationDoc, {
+      ...notification,
+      parentWallet: notification.parentWallet.toLowerCase(),
+      scheduledFor: Timestamp.fromDate(notification.scheduledFor),
+      sentAt: notification.sentAt ? Timestamp.fromDate(notification.sentAt) : null,
+      createdAt: Timestamp.now(),
+      id: notificationDoc.id,
+    });
+    return notificationDoc.id;
+  } catch (error) {
+    console.error('Error creating reminder notification:', error);
+    return null;
+  }
+};
+
+export const getPendingReminders = async (): Promise<ReminderNotification[]> => {
+  try {
+    const q = query(
+      reminderNotificationsCollection,
+      where('status', '==', 'pending'),
+      orderBy('scheduledFor', 'asc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        studentId: data.studentId,
+        parentWallet: data.parentWallet,
+        studentName: data.studentName,
+        parentName: data.parentName,
+        message: data.message,
+        scheduledFor: data.scheduledFor.toDate(),
+        sentAt: data.sentAt ? data.sentAt.toDate() : undefined,
+        status: data.status,
+        type: data.type,
+        createdAt: data.createdAt.toDate(),
+      };
+    });
+  } catch (error) {
+    console.error('Error getting pending reminders:', error);
+    return [];
+  }
+};
+
+export const getRemindersByParent = async (parentWallet: string): Promise<ReminderNotification[]> => {
+  try {
+    const q = query(
+      reminderNotificationsCollection,
+      where('parentWallet', '==', parentWallet.toLowerCase()),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        studentId: data.studentId,
+        parentWallet: data.parentWallet,
+        studentName: data.studentName,
+        parentName: data.parentName,
+        message: data.message,
+        scheduledFor: data.scheduledFor.toDate(),
+        sentAt: data.sentAt ? data.sentAt.toDate() : undefined,
+        status: data.status,
+        type: data.type,
+        createdAt: data.createdAt.toDate(),
+      };
+    });
+  } catch (error) {
+    console.error('Error getting reminders by parent:', error);
+    return [];
+  }
+};
+
+export const updateReminderStatus = async (reminderId: string, status: 'pending' | 'sent' | 'failed', sentAt?: Date): Promise<boolean> => {
+  try {
+    const reminderDoc = doc(reminderNotificationsCollection, reminderId);
+    const updateData: any = { status };
+    if (sentAt) {
+      updateData.sentAt = Timestamp.fromDate(sentAt);
+    }
+    await updateDoc(reminderDoc, updateData);
+    return true;
+  } catch (error) {
+    console.error('Error updating reminder status:', error);
+    return false;
+  }
+};
+
+export const getAllStudents = async (): Promise<Student[]> => {
+  try {
+    const snapshot = await getDocs(studentsCollection);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        parentWallet: data.parentWallet,
+        createdAt: data.createdAt.toDate(),
+      };
+    });
+  } catch (error) {
+    console.error('Error getting all students:', error);
     return [];
   }
 };

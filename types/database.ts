@@ -43,3 +43,29 @@ export interface QRCodeData {
   expiresAt: Date;
   isUsed: boolean;
 }
+
+// New interfaces for reminder system
+export interface SchoolSchedule {
+  id: string;
+  schoolName: string;
+  finishTime: string; // Format: "HH:mm" (24-hour)
+  timezone: string; // e.g., "America/New_York"
+  isActive: boolean;
+  createdBy: string; // Staff wallet
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ReminderNotification {
+  id: string;
+  studentId: string;
+  parentWallet: string;
+  studentName: string;
+  parentName?: string;
+  message: string;
+  scheduledFor: Date;
+  sentAt?: Date;
+  status: 'pending' | 'sent' | 'failed';
+  type: 'pickup_reminder' | 'emergency' | 'general';
+  createdAt: Date;
+}
