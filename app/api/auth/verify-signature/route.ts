@@ -44,7 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifySig
     const normalizedExpectedAddress = expectedAddress.toLowerCase();
 
     // Validate authorization message format if applicable
-    if (message.includes('DevMatch25 - Child Pickup Authorization')) {
+    if (message.includes('KidGuard - Child Pickup Authorization')) {
       if (!validateAuthorizationMessage(message)) {
         return NextResponse.json(
           { success: false, error: 'Invalid authorization message format' },

@@ -43,7 +43,7 @@ const DashboardNavbar: React.FC<DashboardNavbarProps> = ({ wallet, role, isLoadi
           </div>
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent">
-              DevMatch25
+              KidGuard
             </h1>
             <p className="text-sm text-slate-600">Secure Child Pickup System</p>
           </div>

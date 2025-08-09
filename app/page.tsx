@@ -38,14 +38,14 @@ export default function Home() {
               <div className="w-20 h-20 bg-gradient-to-r rounded-xl flex items-center justify-center">
                 <Image
                   src="/logo.jpg"
-                  alt="DevMatch25 logo"
+                  alt="KidGuard logo"
                   width={200}
                   height={200}                
                 />              
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent">
-                  DevMatch25 - KidGuard
+                  KidGuard - KidGuard
                 </h1>
                 <p className="text-sm text-slate-600">Secure Child Pickup System</p>
               </div>
@@ -108,7 +108,7 @@ export default function Home() {
             <div className="flex justify-center">
               <Image
                 src="/logo.jpg"
-                alt="DevMatch25 Logo"
+                alt="KidGuard Logo"
                 width={200}
                 height={200}
                 className="rounded-2xl shadow-xl"
@@ -155,7 +155,7 @@ export default function Home() {
       <footer className="border-t border-slate-200/50 bg-white/80 backdrop-blur-sm mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-slate-600">
-            <p>&copy; 2025 DevMatch25. Secure Child Pickup System powered by blockchain technology.</p>
+            <p>&copy; 2025 KidGuard. Secure Child Pickup System powered by blockchain technology.</p>
           </div>
         </div>
       </footer>

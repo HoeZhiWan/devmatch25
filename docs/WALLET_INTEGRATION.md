@@ -1,6 +1,6 @@
-# Wallet Integration - DevMatch25
+# Wallet Integration - KidGuard
 
-This module provides comprehensive MetaMask wallet integration for the DevMatch25 application, including wallet connection, message signing, and signature verification functionality.
+This module provides comprehensive MetaMask wallet integration for the KidGuard application, including wallet connection, message signing, and signature verification functionality.
 
 ## 🚀 Features
 
@@ -283,7 +283,7 @@ All types are defined in `types/wallet.ts`:
 
 ## 📄 License
 
-This wallet integration is part of the DevMatch25 project and follows the same licensing terms.
+This wallet integration is part of the KidGuard project and follows the same licensing terms.
 
 ---
 

@@ -96,7 +96,7 @@ export default function Dashboard() {
       <footer className="border-t border-slate-200/50 bg-white/80 backdrop-blur-sm mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-slate-600">
-            <p>&copy; 2025 DevMatch25. Secure Child Pickup System powered by blockchain technology.</p>
+            <p>&copy; 2025 KidGuard. Secure Child Pickup System powered by blockchain technology.</p>
           </div>
         </div>
       </footer>
