@@ -6,6 +6,7 @@ import { logAuthorization } from "../lib/web3";
 import { useWallet } from "../hooks/useWallet";
 import { useSignature } from "../hooks/useSignature";
 import { AuthorizationMessage } from "../types/wallet";
+import { upsertUserRoot, addPickupAuthorizationForParent } from "@/lib/firebase";
 
 interface Child {
   id: string;
@@ -174,6 +175,23 @@ const ParentDashboard: React.FC = () => {
       const authHash = `auth-${Date.now()}-${Math.random().toString(16).substr(2, 8)}`;
       const txHash = await logAuthorization(authHash);
       setBlockchainResult(`Pickup person authorized! Tx: ${txHash}`);
+
+      // Persist to Firebase: ensure parent user root exists
+      await upsertUserRoot({ walletAddress: address, role: 'parent' });
+
+      // Create pickup authorization under user/{parent}/pickup
+      await addPickupAuthorizationForParent(address, {
+        blockchainHash: authHash,
+        contractTxHash: txHash,
+        contactNumber: phoneNumber,
+        endDate,
+        parentId: address,
+        relationship,
+        signature: signResult.signature,
+        startDate,
+        studentId: selectedChild || `AUTH-${Date.now()}`,
+        walletAddressPickup: pickupPersonWallet.toLowerCase()
+      });
       
       // Generate QR for pickup person
       setAuthorizedQR(JSON.stringify({

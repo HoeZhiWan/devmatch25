@@ -14,7 +14,13 @@ import {
   endAt
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Student, Authorization, PickupLog, UserSession, QRCodeData } from '@/types/database';
+import type {
+  Student,
+  Authorization,
+  PickupLog,
+  UserSession,
+  QRCodeData
+} from '@/types/database';
 
 // Collection references
 export const studentsCollection = collection(db, 'students');
@@ -22,6 +28,10 @@ export const authorizationsCollection = collection(db, 'authorizations');
 export const pickupLogsCollection = collection(db, 'pickup-logs');
 export const userSessionsCollection = collection(db, 'user-sessions');
 export const qrCodesCollection = collection(db, 'qr-codes');
+
+// New unified schema: root users and pickup history
+export const usersRootCollection = collection(db, 'user');
+export const pickupHistoryCollection = collection(db, 'pickupHistory');
 
 // Student operations
 export const createStudent = async (student: Omit<Student, 'createdAt'>) => {
@@ -489,5 +499,164 @@ export const getPickupLogsByStaff = async (staffWallet: string): Promise<PickupL
   } catch (error) {
     console.error('Error getting pickup logs by staff:', error);
     return [];
+  }
+};
+
+// =========================
+// New helpers for unified schema
+// =========================
+
+// Ensure a user root document exists and upsert basic fields
+export const upsertUserRoot = async (user: { walletAddress: string; role: string }): Promise<boolean> => {
+  try {
+    const normalizedWallet = user.walletAddress.toLowerCase();
+    const userDocRef = doc(usersRootCollection, normalizedWallet);
+    await setDoc(userDocRef, {
+      walletAddress: normalizedWallet,
+      role: user.role,
+      createdAt: Timestamp.now(),
+      lastLoginAt: Timestamp.now()
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error upserting user root:', error);
+    return false;
+  }
+};
+
+// Add a student under a parent user subcollection `student`
+export const addStudentUnderUser = async (
+  parentWallet: string,
+  student: { name: string; grade: string; parentId: string }
+): Promise<string | null> => {
+  try {
+    const parentRef = doc(usersRootCollection, parentWallet.toLowerCase());
+    const studentCol = collection(parentRef, 'student');
+    const studentDocRef = doc(studentCol);
+    await setDoc(studentDocRef, {
+      name: student.name,
+      grade: student.grade,
+      parentId: student.parentId.toLowerCase()
+    });
+    return studentDocRef.id;
+  } catch (error) {
+    console.error('Error adding student under user:', error);
+    return null;
+  }
+};
+
+// Add or update parent profile under user subcollection `parents`
+export const upsertParentProfile = async (
+  parentWallet: string,
+  parentData: { contactNumber: string; name: string; studentIds?: string[]; walletAddressParent: string }
+): Promise<boolean> => {
+  try {
+    const parentRef = doc(usersRootCollection, parentWallet.toLowerCase());
+    const parentsCol = collection(parentRef, 'parents');
+    const parentDocRef = doc(parentsCol);
+    await setDoc(parentDocRef, {
+      name: parentData.name,
+      contactNumber: parentData.contactNumber,
+      studentIds: parentData.studentIds || [],
+      walletAddressParent: parentData.walletAddressParent.toLowerCase()
+    }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error upserting parent profile under user:', error);
+    return false;
+  }
+};
+
+// Add a staff record under user subcollection `staff`
+export const addStaffUnderUser = async (
+  staffWallet: string,
+  staff: { staffid: string; name: string; walletaddress: string }
+): Promise<string | null> => {
+  try {
+    const staffUserRef = doc(usersRootCollection, staffWallet.toLowerCase());
+    const staffCol = collection(staffUserRef, 'staff');
+    const staffDocRef = doc(staffCol);
+    await setDoc(staffDocRef, {
+      staffid: staff.staffid,
+      name: staff.name,
+      walletaddress: staff.walletaddress.toLowerCase()
+    });
+    return staffDocRef.id;
+  } catch (error) {
+    console.error('Error adding staff under user:', error);
+    return null;
+  }
+};
+
+// Create a pickup authorization under a parent user subcollection `pickup`
+export const addPickupAuthorizationForParent = async (
+  parentWallet: string,
+  pickup: {
+    blockchainHash: string;
+    contractTxHash: string;
+    contactNumber: string;
+    endDate: Date | string;
+    parentId: string;
+    relationship: string;
+    signature: string;
+    startDate: Date | string;
+    studentId: string;
+    walletAddressPickup: string;
+  }
+): Promise<string | null> => {
+  try {
+    const normalizedParent = parentWallet.toLowerCase();
+    const parentRef = doc(usersRootCollection, normalizedParent);
+    // Ensure root user exists
+    await setDoc(parentRef, {
+      walletAddress: normalizedParent,
+      role: 'parent',
+      lastLoginAt: Timestamp.now()
+    }, { merge: true });
+
+    const pickupCol = collection(parentRef, 'pickup');
+    const pickupDocRef = doc(pickupCol);
+    await setDoc(pickupDocRef, {
+      blockchainHash: pickup.blockchainHash,
+      contractTxHash: pickup.contractTxHash,
+      contactNumber: pickup.contactNumber,
+      createdAt: Timestamp.now(),
+      endDate: pickup.endDate instanceof Date ? Timestamp.fromDate(pickup.endDate) : pickup.endDate,
+      parentId: pickup.parentId.toLowerCase(),
+      relationship: pickup.relationship,
+      signature: pickup.signature,
+      startDate: pickup.startDate instanceof Date ? Timestamp.fromDate(pickup.startDate) : pickup.startDate,
+      studentId: pickup.studentId,
+      walletAddressPickup: pickup.walletAddressPickup.toLowerCase()
+    });
+    return pickupDocRef.id;
+  } catch (error) {
+    console.error('Error adding pickup authorization for parent:', error);
+    return null;
+  }
+};
+
+// Log a pickup event in global collection `pickupHistory`
+export const createPickupHistoryLog = async (
+  history: {
+    blockchainHash: string;
+    contractTxHash: string;
+    pickupBy: string;
+    staffId: string;
+    studentId: string;
+  }
+): Promise<boolean> => {
+  try {
+    const logDocRef = doc(pickupHistoryCollection);
+    await setDoc(logDocRef, {
+      ...history,
+      pickupBy: history.pickupBy.toLowerCase(),
+      staffId: history.staffId.toLowerCase(),
+      time: Timestamp.now()
+    });
+    return true;
+  } catch (error) {
+    console.error('Error creating pickup history log:', error);
+    return false;
   }
 };

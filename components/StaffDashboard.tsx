@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import QRCodeScanner from "./QRCodeScanner";
 import { logPickup, verifyHash } from "../lib/web3";
+import { createPickupHistoryLog, upsertUserRoot } from "@/lib/firebase";
+import { useWallet } from "@/hooks/useWallet";
 
 interface PickupHistory {
   id: string;
@@ -25,6 +27,7 @@ interface Parent {
 }
 
 const StaffDashboard: React.FC = () => {
+  const { address: staffAddress } = useWallet();
   const [activeTab, setActiveTab] = useState<'pickup' | 'history' | 'users'>('pickup');
   const [studentId, setStudentId] = useState("");
   const [scannedQR, setScannedQR] = useState<any>(null);
@@ -108,7 +111,23 @@ const StaffDashboard: React.FC = () => {
       setValidationResult("✅ Demo Mode: Pickup authorized! Student can be released.");
       
       // Demo mode - simulate blockchain logging
-      await logPickup(scannedQR.hash);
+      const contractTxHash = await logPickup(scannedQR.hash);
+
+      // Ensure staff user root exists
+      if (staffAddress) {
+        await upsertUserRoot({ walletAddress: staffAddress, role: 'staff' });
+      }
+
+      // Persist pickup history
+      if (staffAddress) {
+        await createPickupHistoryLog({
+          blockchainHash: scannedQR.hash,
+          contractTxHash,
+          pickupBy: scannedQR.pickupWallet || '',
+          staffId: staffAddress,
+          studentId: scannedQR.childId
+        });
+      }
 
       // Add to pickup history
       const newPickup: PickupHistory = {
