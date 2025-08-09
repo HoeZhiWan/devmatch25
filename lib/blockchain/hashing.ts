@@ -12,11 +12,12 @@ import type { AuthorizationData, PickupEventData } from './types';
  * @param authData Authorization data to hash
  * @returns Hash of the authorization data
  */
-export const createAuthorizationHash = (authData: AuthorizationData): string => {
+export const createAuthorizationHash = (firebaseRecordId: string, authData: AuthorizationData): string => {
   const hashData = ethers.solidityPacked(
-    ['string', 'address', 'address', 'bytes32', 'uint256', 'uint256', 'bytes'],
+    ['string', 'string', 'address', 'address', 'bytes32', 'uint256', 'uint256', 'bytes'],
     [
       HASH_PREFIXES.AUTHORIZATION,
+      firebaseRecordId,
       authData.parentWallet,
       authData.pickupWallet,
       authData.studentHash,
@@ -34,11 +35,12 @@ export const createAuthorizationHash = (authData: AuthorizationData): string => 
  * @param eventData Pickup event data to hash
  * @returns Hash of the pickup event data
  */
-export const createPickupEventHash = (eventData: PickupEventData): string => {
+export const createPickupEventHash = (firebaseRecordId: string, eventData: PickupEventData): string => {
   const hashData = ethers.solidityPacked(
-    ['string', 'bytes32', 'address', 'address', 'bytes32', 'uint256'],
+    ['string', 'string', 'bytes32', 'address', 'address', 'bytes32', 'uint256'],
     [
       HASH_PREFIXES.PICKUP_EVENT,
+      firebaseRecordId,
       eventData.studentHash,
       eventData.pickupWallet,
       eventData.staffWallet,
@@ -221,11 +223,13 @@ export const verifyMerkleProof = (
  * @returns Combined hash for verification
  */
 export const createVerificationHash = (
+  authFirebaseId: string,
   authData: AuthorizationData,
+  pickupFirebaseId: string,
   pickupData: PickupEventData
 ): string => {
-  const authHash = createAuthorizationHash(authData);
-  const eventHash = createPickupEventHash(pickupData);
+  const authHash = createAuthorizationHash(authFirebaseId, authData);
+  const eventHash = createPickupEventHash(pickupFirebaseId, pickupData);
   
   const combinedHash = ethers.solidityPacked(
     ['bytes32', 'bytes32'],

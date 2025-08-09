@@ -6,216 +6,125 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title PickupSecurity
- * @dev Smart contract for verifiable authorization proofs and tamper-proof pickup history
- * Features:
- * - Verifiable authorization proof (hash of signature on-chain)
- * - Tamper-proof pickup history (Merkle root anchoring)
- * - Timestamping + proof verification (on-chain root + off-chain tree)
- * - Smart contract to store and validate hashes
+ * @dev Smart contract for verifiable authorization proofs and tamper-proof pickup history.
+ * This contract uses a hybrid on-chain/off-chain model to save gas. It stores
+ * only cryptographic hashes (proofs) on-chain, while the full data resides off-chain.
  */
 contract PickupSecurity is Ownable {
-    
-    // Structs
-    struct Authorization {
-        bytes32 authHash;           // Hash of the authorization signature
-        address parentWallet;       // Parent's wallet address
-        address pickupWallet;       // Pickup person's wallet address
-        bytes32 studentHash;        // Hash of student ID (for privacy)
-        uint256 startDate;          // Authorization start timestamp
-        uint256 endDate;            // Authorization end timestamp
-        uint256 createdAt;          // When authorization was created
-        bool isActive;              // Whether authorization is active
-        bool isVerified;            // Whether signature has been verified
-    }
-    
-    struct PickupEvent {
-        bytes32 eventHash;          // Hash of pickup event data
-        bytes32 studentHash;        // Hash of student ID
-        address pickupWallet;       // Pickup person's wallet
-        address staffWallet;        // Staff member who verified pickup
-        uint256 timestamp;          // Pickup timestamp
-        bytes32 qrCodeHash;         // Hash of QR code used
-        bool isVerified;            // Whether pickup was verified
-    }
-    
+
+    // --- Structs ---
+
     struct MerkleBatch {
-        bytes32 merkleRoot;         // Merkle root of pickup events
-        uint256 batchNumber;        // Sequential batch number
-        uint256 timestamp;          // When batch was anchored
-        uint256 blockNumber;        // Block number when anchored
-        uint256 eventCount;         // Number of events in this batch
-        string ipfsHash;            // IPFS hash of off-chain data
+        bytes32 merkleRoot;      // Merkle root of off-chain pickup event hashes
+        uint256 batchNumber;     // Sequential batch number
+        uint256 timestamp;       // When this batch was anchored on-chain
+        uint256 blockNumber;     // Block number when this batch was anchored
+        uint256 eventCount;      // Number of events included in this batch
+        string ipfsHash;         // IPFS hash (or other URI) of the off-chain data
     }
-    
-    // State variables
-    mapping(bytes32 => Authorization) public authorizations;
-    mapping(bytes32 => PickupEvent) public pickupEvents;
+
+    // --- State Variables ---
+
+    // On-chain registry for authorization proofs.
+    // The hash is a fingerprint of the off-chain Firebase record.
+    mapping(bytes32 => bool) public registeredAuthorizations;
+
+    // On-chain registry for pickup proofs.
+    mapping(bytes32 => bool) public registeredPickups;
+
+    // Associates an authorization hash with the parent who created it, for revocation.
+    mapping(bytes32 => address) public authorizationToParent;
+
+    // Stores Merkle batches for historical pickup verification.
     mapping(uint256 => MerkleBatch) public merkleBatches;
-    
+
+    // Counters for statistics.
     uint256 public authorizationCounter;
-    uint256 public pickupEventCounter;
+    uint256 public pickupCounter;
     uint256 public batchCounter;
-    
-    // Events
+
+    // --- Events ---
+
     event AuthorizationCreated(
         bytes32 indexed authHash,
-        address indexed parentWallet,
-        address indexed pickupWallet,
-        bytes32 studentHash,
-        uint256 startDate,
-        uint256 endDate
+        address indexed parentWallet
     );
-    
-    event AuthorizationVerified(
+
+    event AuthorizationRevoked(
         bytes32 indexed authHash,
-        bool isVerified
+        address indexed parentWallet
     );
-    
-    event PickupEventRecorded(
-        bytes32 indexed eventHash,
-        bytes32 indexed studentHash,
-        address indexed pickupWallet,
-        uint256 timestamp
+
+    event PickupRecorded(
+        bytes32 indexed pickupHash,
+        address indexed staffWallet
     );
-    
+
     event MerkleBatchAnchored(
         uint256 indexed batchNumber,
         bytes32 indexed merkleRoot,
         uint256 timestamp,
         uint256 eventCount
     );
-    
-    event AuthorizationRevoked(
-        bytes32 indexed authHash,
-        address indexed parentWallet
-    );
-    
-    // Modifiers
-    modifier onlyParent(bytes32 authHash) {
-        require(authorizations[authHash].parentWallet == msg.sender, "Only parent can perform this action");
-        _;
-    }
-    
-    modifier onlyActiveAuthorization(bytes32 authHash) {
-        require(authorizations[authHash].isActive, "Authorization is not active");
-        require(block.timestamp >= authorizations[authHash].startDate, "Authorization not yet valid");
-        require(block.timestamp <= authorizations[authHash].endDate, "Authorization has expired");
-        _;
-    }
-    
-    // Constructor
+
+    // --- Constructor ---
+
     constructor() Ownable(msg.sender) {}
-    
+
+    // --- Core Functions ---
+
     /**
-     * @dev Creates a new authorization with signature hash
-     * @param authHash Hash of the authorization signature
-     * @param parentWallet Parent's wallet address
-     * @param pickupWallet Pickup person's wallet address
-     * @param studentHash Hash of student ID
-     * @param startDate Authorization start timestamp
-     * @param endDate Authorization end timestamp
+     * @dev Creates a new authorization hash record on-chain.
+     * @param authHash A unique hash representing the off-chain authorization data.
+     * @param parentWallet The wallet address of the parent creating the authorization.
      */
-    function createAuthorization(
-        bytes32 authHash,
-        address parentWallet,
-        address pickupWallet,
-        bytes32 studentHash,
-        uint256 startDate,
-        uint256 endDate
-    ) external {
+    function createAuthorization(bytes32 authHash, address parentWallet) external {
         require(authHash != bytes32(0), "Invalid authorization hash");
         require(parentWallet != address(0), "Invalid parent wallet");
-        require(pickupWallet != address(0), "Invalid pickup wallet");
-        require(startDate < endDate, "Invalid date range");
-        require(block.timestamp <= startDate, "Start date must be in the future");
-        
-        // Check if authorization already exists
-        require(authorizations[authHash].authHash == bytes32(0), "Authorization already exists");
-        
-        authorizations[authHash] = Authorization({
-            authHash: authHash,
-            parentWallet: parentWallet,
-            pickupWallet: pickupWallet,
-            studentHash: studentHash,
-            startDate: startDate,
-            endDate: endDate,
-            createdAt: block.timestamp,
-            isActive: true,
-            isVerified: false
-        });
-        
+        require(!registeredAuthorizations[authHash], "Authorization already exists");
+
+        registeredAuthorizations[authHash] = true;
+        authorizationToParent[authHash] = parentWallet;
         authorizationCounter++;
-        
-        emit AuthorizationCreated(
-            authHash,
-            parentWallet,
-            pickupWallet,
-            studentHash,
-            startDate,
-            endDate
-        );
+
+        emit AuthorizationCreated(authHash, parentWallet);
     }
-    
+
     /**
-     * @dev Verifies an authorization signature hash
-     * @param authHash Hash of the authorization to verify
-     * @param isVerified Whether the signature is verified
+     * @dev Revokes an authorization. Only the parent who created it can revoke it.
+     * @param authHash The hash of the authorization to revoke.
      */
-    function verifyAuthorization(bytes32 authHash, bool isVerified) external onlyOwner {
-        require(authorizations[authHash].authHash != bytes32(0), "Authorization does not exist");
-        
-        authorizations[authHash].isVerified = isVerified;
-        
-        emit AuthorizationVerified(authHash, isVerified);
+    function revokeAuthorization(bytes32 authHash) external {
+        require(registeredAuthorizations[authHash], "Authorization does not exist");
+        require(authorizationToParent[authHash] == msg.sender, "Only the original parent can revoke this authorization");
+
+        // Set to false instead of deleting to maintain history but mark as inactive.
+        registeredAuthorizations[authHash] = false;
+
+        emit AuthorizationRevoked(authHash, msg.sender);
     }
-    
+
     /**
-     * @dev Records a pickup event with hash verification
-     * @param eventHash Hash of the pickup event data
-     * @param studentHash Hash of student ID
-     * @param pickupWallet Pickup person's wallet
-     * @param staffWallet Staff member's wallet
-     * @param qrCodeHash Hash of QR code used
+     * @dev Records a pickup event hash on-chain.
+     * @param pickupHash A unique hash representing the off-chain pickup event.
      */
-    function recordPickupEvent(
-        bytes32 eventHash,
-        bytes32 studentHash,
-        address pickupWallet,
-        address staffWallet,
-        bytes32 qrCodeHash
-    ) external {
-        require(eventHash != bytes32(0), "Invalid event hash");
-        require(pickupWallet != address(0), "Invalid pickup wallet");
-        require(staffWallet != address(0), "Invalid staff wallet");
-        
-        // Check if event already exists
-        require(pickupEvents[eventHash].eventHash == bytes32(0), "Event already recorded");
-        
-        pickupEvents[eventHash] = PickupEvent({
-            eventHash: eventHash,
-            studentHash: studentHash,
-            pickupWallet: pickupWallet,
-            staffWallet: staffWallet,
-            timestamp: block.timestamp,
-            qrCodeHash: qrCodeHash,
-            isVerified: true
-        });
-        
-        pickupEventCounter++;
-        
-        emit PickupEventRecorded(
-            eventHash,
-            studentHash,
-            pickupWallet,
-            block.timestamp
-        );
+    function recordPickup(bytes32 pickupHash) external {
+        require(pickupHash != bytes32(0), "Invalid pickup hash");
+        require(!registeredPickups[pickupHash], "Pickup already recorded");
+
+        registeredPickups[pickupHash] = true;
+        pickupCounter++;
+
+        emit PickupRecorded(pickupHash, msg.sender);
     }
-    
+
+    // --- Merkle Batch Functions ---
+
     /**
-     * @dev Anchors a Merkle root of pickup events
-     * @param merkleRoot Merkle root of pickup events
-     * @param eventCount Number of events in this batch
-     * @param ipfsHash IPFS hash of off-chain data
+     * @dev Anchors a Merkle root of pickup events for efficient historical verification.
+     * @param merkleRoot The Merkle root of the pickup event hashes.
+     * @param eventCount The number of events included in this batch.
+     * @param ipfsHash The IPFS hash or URI of the off-chain data file.
      */
     function anchorMerkleBatch(
         bytes32 merkleRoot,
@@ -224,7 +133,7 @@ contract PickupSecurity is Ownable {
     ) external onlyOwner {
         require(merkleRoot != bytes32(0), "Invalid Merkle root");
         require(eventCount > 0, "Invalid event count");
-        
+
         merkleBatches[batchCounter] = MerkleBatch({
             merkleRoot: merkleRoot,
             batchNumber: batchCounter,
@@ -233,23 +142,23 @@ contract PickupSecurity is Ownable {
             eventCount: eventCount,
             ipfsHash: ipfsHash
         });
-        
+
         emit MerkleBatchAnchored(
             batchCounter,
             merkleRoot,
             block.timestamp,
             eventCount
         );
-        
+
         batchCounter++;
     }
-    
+
     /**
-     * @dev Verifies a pickup event using Merkle proof
-     * @param eventHash Hash of the pickup event
-     * @param batchNumber Batch number containing the event
-     * @param proof Merkle proof for the event
-     * @return bool Whether the proof is valid
+     * @dev Verifies that a pickup event is part of a previously anchored Merkle batch.
+     * @param eventHash The hash of the pickup event to verify.
+     * @param batchNumber The batch number where the event is expected to be.
+     * @param proof The Merkle proof required to verify the event's inclusion.
+     * @return bool Returns true if the proof is valid, false otherwise.
      */
     function verifyPickupEvent(
         bytes32 eventHash,
@@ -257,84 +166,28 @@ contract PickupSecurity is Ownable {
         bytes32[] memory proof
     ) external view returns (bool) {
         require(batchNumber < batchCounter, "Batch does not exist");
-        
         MerkleBatch memory batch = merkleBatches[batchNumber];
-        
-        return MerkleProof.verify(
-            proof,
-            batch.merkleRoot,
-            eventHash
-        );
+        return MerkleProof.verify(proof, batch.merkleRoot, eventHash);
     }
-    
+
+    // --- View Functions ---
+
     /**
-     * @dev Revokes an authorization (only parent can do this)
-     * @param authHash Hash of the authorization to revoke
-     */
-    function revokeAuthorization(bytes32 authHash) external onlyParent(authHash) {
-        require(authorizations[authHash].isActive, "Authorization is not active");
-        
-        authorizations[authHash].isActive = false;
-        
-        emit AuthorizationRevoked(authHash, msg.sender);
-    }
-    
-    /**
-     * @dev Gets authorization details
-     * @param authHash Hash of the authorization
-     * @return Authorization struct
-     */
-    function getAuthorization(bytes32 authHash) external view returns (Authorization memory) {
-        return authorizations[authHash];
-    }
-    
-    /**
-     * @dev Gets pickup event details
-     * @param eventHash Hash of the pickup event
-     * @return PickupEvent struct
-     */
-    function getPickupEvent(bytes32 eventHash) external view returns (PickupEvent memory) {
-        return pickupEvents[eventHash];
-    }
-    
-    /**
-     * @dev Gets Merkle batch details
-     * @param batchNumber Batch number
-     * @return MerkleBatch struct
+     * @dev Gets the details of a specific Merkle batch.
+     * @param batchNumber The number of the batch to retrieve.
+     * @return MerkleBatch The batch details.
      */
     function getMerkleBatch(uint256 batchNumber) external view returns (MerkleBatch memory) {
         return merkleBatches[batchNumber];
     }
-    
+
     /**
-     * @dev Checks if an authorization is valid for pickup
-     * @param authHash Hash of the authorization
-     * @param pickupWallet Pickup person's wallet
-     * @param studentHash Hash of student ID
-     * @return bool Whether authorization is valid
-     */
-    function isAuthorizationValid(
-        bytes32 authHash,
-        address pickupWallet,
-        bytes32 studentHash
-    ) external view returns (bool) {
-        Authorization memory auth = authorizations[authHash];
-        
-        return auth.isActive &&
-               auth.isVerified &&
-               auth.pickupWallet == pickupWallet &&
-               auth.studentHash == studentHash &&
-               block.timestamp >= auth.startDate &&
-               block.timestamp <= auth.endDate;
-    }
-    
-    /**
-     * @dev Gets contract statistics
-     * @return uint256 Number of authorizations
-     * @return uint256 Number of pickup events
-     * @return uint256 Number of Merkle batches
+     * @dev Gets contract statistics.
+     * @return uint256 The total number of authorizations created.
+     * @return uint256 The total number of pickups recorded.
+     * @return uint256 The total number of Merkle batches anchored.
      */
     function getContractStats() external view returns (uint256, uint256, uint256) {
-        return (authorizationCounter, pickupEventCounter, batchCounter);
+        return (authorizationCounter, pickupCounter, batchCounter);
     }
 }

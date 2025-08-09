@@ -24,28 +24,25 @@ import { createAuthorizationHash, createPickupEventHash } from './hashing';
 // Contract ABI (simplified for the main functions)
 const PICKUP_SECURITY_ABI = [
   // Authorization functions
-  'function createAuthorization(bytes32 authHash, address parentWallet, address pickupWallet, bytes32 studentHash, uint256 startDate, uint256 endDate) external',
-  'function verifyAuthorization(bytes32 authHash, bool isVerified) external',
+  'function createAuthorization(bytes32 authHash, address parentWallet) external',
   'function revokeAuthorization(bytes32 authHash) external',
-  'function getAuthorization(bytes32 authHash) external view returns (bytes32 authHash, address parentWallet, address pickupWallet, bytes32 studentHash, uint256 startDate, uint256 endDate, uint256 createdAt, bool isActive, bool isVerified)',
-  'function isAuthorizationValid(bytes32 authHash, address pickupWallet, bytes32 studentHash) external view returns (bool)',
-  
+  'function registeredAuthorizations(bytes32 authHash) external view returns (bool)',
+
   // Pickup event functions
-  'function recordPickupEvent(bytes32 eventHash, bytes32 studentHash, address pickupWallet, address staffWallet, bytes32 qrCodeHash) external',
-  'function getPickupEvent(bytes32 eventHash) external view returns (bytes32 eventHash, bytes32 studentHash, address pickupWallet, address staffWallet, uint256 timestamp, bytes32 qrCodeHash, bool isVerified)',
-  
+  'function recordPickup(bytes32 pickupHash) external',
+  'function registeredPickups(bytes32 pickupHash) external view returns (bool)',
+
   // Merkle batch functions
   'function anchorMerkleBatch(bytes32 merkleRoot, uint256 eventCount, string memory ipfsHash) external',
   'function getMerkleBatch(uint256 batchNumber) external view returns (bytes32 merkleRoot, uint256 batchNumber, uint256 timestamp, uint256 blockNumber, uint256 eventCount, string memory ipfsHash)',
   'function verifyPickupEvent(bytes32 eventHash, uint256 batchNumber, bytes32[] memory proof) external view returns (bool)',
-  
+
   // Statistics
   'function getContractStats() external view returns (uint256, uint256, uint256)',
-  
+
   // Events
-  'event AuthorizationCreated(bytes32 indexed authHash, address indexed parentWallet, address indexed pickupWallet, bytes32 studentHash, uint256 startDate, uint256 endDate)',
-  'event AuthorizationVerified(bytes32 indexed authHash, bool isVerified)',
-  'event PickupEventRecorded(bytes32 indexed eventHash, bytes32 indexed studentHash, address indexed pickupWallet, uint256 timestamp)',
+  'event AuthorizationCreated(bytes32 indexed authHash, address indexed parentWallet)',
+  'event PickupRecorded(bytes32 indexed pickupHash, address indexed staffWallet)',
   'event MerkleBatchAnchored(uint256 indexed batchNumber, bytes32 indexed merkleRoot, uint256 timestamp, uint256 eventCount)',
   'event AuthorizationRevoked(bytes32 indexed authHash, address indexed parentWallet)'
 ];
@@ -82,20 +79,16 @@ export const getContract = (
  */
 export const createAuthorizationOnChain = async (
   signer: ethers.Signer,
-  authData: AuthorizationData,
+  authHash: string,
+  parentWallet: string,
   network?: BlockchainConfig
 ): Promise<TransactionResult> => {
   try {
     const contract = getContract(signer, network);
-    const authHash = createAuthorizationHash(authData);
     
     const tx = await contract.createAuthorization(
       authHash,
-      authData.parentWallet,
-      authData.pickupWallet,
-      authData.studentHash,
-      authData.startDate,
-      authData.endDate,
+      parentWallet,
       {
         gasLimit: GAS_SETTINGS.AUTHORIZATION_GAS_LIMIT
       }
@@ -118,27 +111,22 @@ export const createAuthorizationOnChain = async (
 };
 
 /**
- * Records a pickup event on the blockchain
+ * Records a pickup event hash on the blockchain
  * @param signer Ethers signer
- * @param eventData Pickup event data
+ * @param pickupHash A unique hash representing the off-chain pickup event
  * @param network Network configuration
  * @returns Transaction result
  */
-export const recordPickupEventOnChain = async (
+export const recordPickupOnChain = async (
   signer: ethers.Signer,
-  eventData: PickupEventData,
+  pickupHash: string,
   network?: BlockchainConfig
 ): Promise<TransactionResult> => {
   try {
     const contract = getContract(signer, network);
-    const eventHash = createPickupEventHash(eventData);
     
-    const tx = await contract.recordPickupEvent(
-      eventHash,
-      eventData.studentHash,
-      eventData.pickupWallet,
-      eventData.staffWallet,
-      eventData.qrCodeHash,
+    const tx = await contract.recordPickup(
+      pickupHash,
       {
         gasLimit: GAS_SETTINGS.PICKUP_EVENT_GAS_LIMIT
       }
@@ -155,7 +143,7 @@ export const recordPickupEventOnChain = async (
   } catch (error: any) {
     return {
       success: false,
-      error: error.message || 'Failed to record pickup event on blockchain'
+      error: error.message || 'Failed to record pickup on blockchain'
     };
   }
 };
@@ -213,91 +201,38 @@ export const anchorMerkleBatchOnChain = async (
  * @param network Network configuration
  * @returns Whether authorization is valid
  */
-export const verifyAuthorizationOnChain = async (
+export const isAuthorizationRegistered = async (
   provider: ethers.Provider,
   authHash: string,
-  pickupWallet: string,
-  studentHash: string,
   network?: BlockchainConfig
 ): Promise<boolean> => {
   try {
     const contract = getContract(provider, network);
-    return await contract.isAuthorizationValid(authHash, pickupWallet, studentHash);
+    return await contract.registeredAuthorizations(authHash);
   } catch (error: any) {
-    console.error('Failed to verify authorization on blockchain:', error);
+    console.error('Failed to check authorization registration:', error);
     return false;
   }
 };
 
 /**
- * Gets authorization details from the blockchain
+ * Checks if a pickup hash is registered on the blockchain
  * @param provider Ethers provider
- * @param authHash Authorization hash
+ * @param pickupHash The hash to check
  * @param network Network configuration
- * @returns Authorization details or null
+ * @returns True if the hash is registered, false otherwise
  */
-export const getAuthorizationFromChain = async (
+export const isPickupRegistered = async (
   provider: ethers.Provider,
-  authHash: string,
+  pickupHash: string,
   network?: BlockchainConfig
-) => {
+): Promise<boolean> => {
   try {
     const contract = getContract(provider, network);
-    const auth = await contract.getAuthorization(authHash);
-    
-    if (auth.authHash === ethers.ZeroHash) {
-      return null;
-    }
-    
-    return {
-      authHash: auth.authHash,
-      parentWallet: auth.parentWallet,
-      pickupWallet: auth.pickupWallet,
-      studentHash: auth.studentHash,
-      startDate: auth.startDate.toNumber(),
-      endDate: auth.endDate.toNumber(),
-      createdAt: auth.createdAt.toNumber(),
-      isActive: auth.isActive,
-      isVerified: auth.isVerified
-    };
+    return await contract.registeredPickups(pickupHash);
   } catch (error: any) {
-    console.error('Failed to get authorization from blockchain:', error);
-    return null;
-  }
-};
-
-/**
- * Gets pickup event details from the blockchain
- * @param provider Ethers provider
- * @param eventHash Event hash
- * @param network Network configuration
- * @returns Pickup event details or null
- */
-export const getPickupEventFromChain = async (
-  provider: ethers.Provider,
-  eventHash: string,
-  network?: BlockchainConfig
-) => {
-  try {
-    const contract = getContract(provider, network);
-    const event = await contract.getPickupEvent(eventHash);
-    
-    if (event.eventHash === ethers.ZeroHash) {
-      return null;
-    }
-    
-    return {
-      eventHash: event.eventHash,
-      studentHash: event.studentHash,
-      pickupWallet: event.pickupWallet,
-      staffWallet: event.staffWallet,
-      timestamp: event.timestamp.toNumber(),
-      qrCodeHash: event.qrCodeHash,
-      isVerified: event.isVerified
-    };
-  } catch (error: any) {
-    console.error('Failed to get pickup event from blockchain:', error);
-    return null;
+    console.error('Failed to check pickup registration:', error);
+    return false;
   }
 };
 
