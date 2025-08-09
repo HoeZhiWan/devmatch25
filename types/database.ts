@@ -93,3 +93,62 @@ export interface QRCodeContent {
   id: string; // Authorization record ID
   hash: string; // Verification hash
 }
+
+// =========================
+// New unified schema types
+// =========================
+
+// Root document under collection `user`
+export interface UserRoot {
+  walletAddress: string; // lowercase
+  role: 'parent' | 'pickup' | 'staff' | string;
+  createdAt?: Date;
+  lastLoginAt?: Date;
+}
+
+// `user/{wallet}/staff/{doc}`
+export interface StaffSubDoc {
+  staffid: string;
+  name: string;
+  walletaddress: string; // lowercase
+}
+
+// `user/{wallet}/student/{doc}`
+export interface StudentSubDoc {
+  name: string;
+  grade: string;
+  parentId: string; // lowercase wallet
+}
+
+// `user/{wallet}/parents/{doc}`
+export interface ParentSubDoc {
+  contactNumber: string;
+  name: string;
+  studentIds: string[];
+  walletAddressParent: string; // lowercase
+}
+
+// `user/{wallet}/pickup/{doc}` (authorization records)
+export interface PickupAuthSubDoc {
+  blockchainHash: string;
+  contractTxHash: string;
+  contactNumber: string;
+  createdAt: Date | string; // stored as Timestamp
+  endDate: Date | string; // ISO or Date; stored as Timestamp
+  parentId: string; // lowercase wallet
+  relationship: string;
+  signature: string;
+  startDate: Date | string; // ISO or Date; stored as Timestamp
+  studentId: string;
+  walletAddressPickup: string; // lowercase
+}
+
+// Collection `pickupHistory` (global)
+export interface PickupHistoryDoc {
+  blockchainHash: string;
+  contractTxHash: string;
+  pickupBy: string; // pickup wallet lowercase
+  staffId: string; // staff wallet lowercase
+  studentId: string;
+  time: Date; // stored as Timestamp
+}
