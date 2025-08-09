@@ -105,9 +105,9 @@ const StaffDashboard: React.FC = () => {
         console.log('🔍 Frontend: Fetching staff from API...');
         const res = await fetch("/api/staff?isActive=true&limit=100");
         const data = await res.json();
-        
+
         console.log('📦 Frontend: API Response:', { status: res.status, data });
-        
+
         if (res.ok && data.success) {
           console.log('✅ Frontend: Successfully loaded', data.staff?.length || 0, 'staff members');
           setStaff(data.staff || []);
@@ -238,6 +238,11 @@ const StaffDashboard: React.FC = () => {
     }
   };
 
+  function formatWallet(addr: string) {
+    if (!addr || addr.length < 10) return addr;
+    return addr.slice(0, 6) + "..." + addr.slice(-4);
+  }
+
   return (
     <div className="space-y-8">
       {/* Navigation Tabs */}
@@ -318,14 +323,14 @@ const StaffDashboard: React.FC = () => {
               <p className="text-slate-600">Scan QR codes and validate pickup authorizations</p>
             </div>
           </div>
-          
+
           <div className="space-y-6">
             <div className="bg-slate-50 rounded-xl p-6">
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 Student ID
               </label>
               <input
-                className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white transition-all duration-200"
+                className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white text-black transition-all duration-200"
                 placeholder="Enter student ID (e.g., STU001, 123, 456)"
                 value={studentId}
                 onChange={e => setStudentId(e.target.value)}
@@ -354,16 +359,16 @@ const StaffDashboard: React.FC = () => {
                 <h4 className="font-semibold text-blue-800 mb-3">QR Code Data:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-700">
                   <div className="bg-white rounded-lg p-3">
-                    <span className="font-medium">Child ID:</span> {scannedQR.childId}
+                    <span className="font-medium text-black">Child ID:</span> {scannedQR.childId}
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <span className="font-medium">Pickup Wallet:</span> {scannedQR.pickupWallet}
                   </div>
                   <div className="bg-white rounded-lg p-3">
-                    <span className="font-medium">Valid Until:</span> {scannedQR.validUntil}
+                    <span className="font-medium text-black">Valid Until:</span> {scannedQR.validUntil}
                   </div>
                   <div className="bg-white rounded-lg p-3">
-                    <span className="font-medium">Parent Wallet:</span> {scannedQR.parentWallet}
+                    <span className="font-medium text-black">Parent Wallet:</span> {scannedQR.parentWallet}
                   </div>
                 </div>
               </div>
@@ -388,11 +393,10 @@ const StaffDashboard: React.FC = () => {
             </button>
 
             {validationResult && (
-              <div className={`p-4 rounded-xl border ${
-                validationResult.startsWith('✅') 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-red-50 border-red-200 text-red-800'
-              }`}>
+              <div className={`p-4 rounded-xl border ${validationResult.startsWith('✅')
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
                 <div className="flex items-center space-x-2">
                   <span>{validationResult.startsWith('✅') ? '✅' : '❌'}</span>
                   <span>{validationResult}</span>
@@ -467,8 +471,8 @@ const StaffDashboard: React.FC = () => {
               <div className="text-slate-400 text-6xl mb-4">📋</div>
               <h3 className="text-xl font-medium text-slate-600 mb-2">No Pickup Records</h3>
               <p className="text-slate-500">
-                {selectedDate || selectedStudent !== 'All students' 
-                  ? 'No records match your current filters.' 
+                {selectedDate || selectedStudent !== 'All students'
+                  ? 'No records match your current filters.'
                   : 'No pickup records available yet.'}
               </p>
             </div>
@@ -512,11 +516,10 @@ const StaffDashboard: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          record.status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${record.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                          }`}>
                           {record.status === 'completed' ? '✅ Completed' : '⏳ Pending'}
                         </span>
                       </td>
@@ -664,11 +667,10 @@ const StaffDashboard: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!isFormValid}
-                  className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                    !isFormValid
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl'
-                  }`}
+                  className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${!isFormValid
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl'
+                    }`}
                 >
                   <div className="flex items-center">
                     <span className="mr-2">➕</span>
@@ -812,7 +814,7 @@ const StaffDashboard: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex items-center">
                 <span className="text-red-500 text-xl mr-3">⚠️</span>
-        <div>
+                <div>
                   <h3 className="font-medium text-red-800">Error Loading Staff</h3>
                   <p className="text-red-600 text-sm">{staffError}</p>
                 </div>
@@ -853,15 +855,14 @@ const StaffDashboard: React.FC = () => {
                       </td>
                       <td className="py-4 px-4">
                         <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
-                          {member.walletAddress}
+                          {formatWallet(member.walletAddress)}
                         </code>
                       </td>
                       <td className="py-4 px-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          member.isActive 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${member.isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
                           {member.isActive ? '✅ Active' : '❌ Inactive'}
                         </span>
                       </td>
@@ -944,7 +945,7 @@ const StaffDashboard: React.FC = () => {
               </div>
             </div>
 
-        <div>
+            <div>
               <label htmlFor="walletAddress" className="block text-sm font-medium text-slate-700 mb-2">
                 Wallet Address <span className="text-red-500">*</span>
               </label>
@@ -970,11 +971,10 @@ const StaffDashboard: React.FC = () => {
               <button
                 type="submit"
                 disabled={addLoading || !form.name.trim() || !form.role.trim() || !form.walletAddress.trim()}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                  addLoading || !form.name.trim() || !form.role.trim() || !form.walletAddress.trim()
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl'
-                }`}
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${addLoading || !form.name.trim() || !form.role.trim() || !form.walletAddress.trim()
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl'
+                  }`}
               >
                 {addLoading ? (
                   <div className="flex items-center">
