@@ -391,7 +391,7 @@ const StaffManagementTab: React.FC = () => {
                       <div key={student.id} className="bg-white rounded-lg p-3 border">
                         <div className="font-medium text-slate-800">{student.name}</div>
                         <div className="text-sm text-slate-600">ID: {student.id} • Grade: {student.grade}</div>
-                        <div className="text-xs text-slate-500">Parent: {student.parentId.slice(0, 8)}...{student.parentId.slice(-4)}</div>
+                        <div className="text-xs text-slate-500">Parent: {student.parentId ? `${student.parentId.slice(0, 8)}...${student.parentId.slice(-4)}` : 'Unknown'}</div>
                       </div>
                     ))
                   )}
@@ -408,14 +408,14 @@ const StaffManagementTab: React.FC = () => {
                       <p className="text-slate-500">No parents added yet</p>
                     </div>
                   ) : (
-                    parents.map((parent) => (
-                      <div key={parent.id} className="bg-white rounded-lg p-3 border">
+                    parents.map((parent, index) => (
+                      <div key={parent.id || parent.walletAddress || `parent-${index}`} className="bg-white rounded-lg p-3 border">
                         <div className="font-medium text-slate-800">{parent.name}</div>
                         <div className="text-sm text-slate-600">
                           Role: Parent • Contact: {parent.contactNumber || 'Not provided'}
                         </div>
                         <div className="text-xs text-slate-500">
-                          Wallet: {parent.walletAddress.slice(0, 8)}...{parent.walletAddress.slice(-4)}
+                          Wallet: {(() => { const wa = parent.walletAddress || parent.id || ''; return wa ? `${wa.slice(0, 8)}...${wa.slice(-4)}` : 'Unknown'; })()}
                         </div>
                       </div>
                     ))

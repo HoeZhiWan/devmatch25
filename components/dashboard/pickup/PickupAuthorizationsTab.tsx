@@ -117,7 +117,7 @@ const PickupAuthorizationsTab: React.FC = () => {
               </option>
             ))}
           </select>
-          <p className="text-xs text-slate-500 mt-2">
+          <div className="text-xs text-slate-500 mt-2">
             {dataLoading ? (
               'Loading authorized students...'
             ) : authorizedStudents.length === 0 ? (
@@ -137,7 +137,7 @@ const PickupAuthorizationsTab: React.FC = () => {
             ) : (
               `${authorizedStudents.length} students you're authorized to pick up`
             )}
-          </p>
+          </div>
         </div>
 
         <button

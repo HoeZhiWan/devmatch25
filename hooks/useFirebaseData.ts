@@ -120,8 +120,8 @@ export function useFirebaseData(): UseFirebaseDataReturn {
         params.append('parentId', authUser.wallet);
       }
       // For pickup persons and staff, fetch all students (needed to check authorizations)
-      
-      const response = await fetch(`/api/students?${params.toString()}`);
+      const url = params.toString() ? `/api/students?${params.toString()}` : '/api/students';
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -159,7 +159,7 @@ export function useFirebaseData(): UseFirebaseDataReturn {
 
   // Fetch authorization records (for pickup persons)
   const fetchAuthorizationRecords = useCallback(async () => {
-    if (!authUser?.wallet || authUser.role !== 'pickup') return;
+    if (!authUser?.wallet || (authUser.role !== 'pickup' && authUser.role !== 'pickup_person')) return;
     
     setLoadingRecords(true);
     try {
@@ -188,7 +188,9 @@ export function useFirebaseData(): UseFirebaseDataReturn {
 
   // Fetch all users (for staff)
   const fetchAllUsers = useCallback(async () => {
-    if (!authUser?.wallet || authUser.role !== 'staff') return;
+    // Needed by staff dashboards and pickup users to resolve which parents
+    // have authorized the current pickup wallet
+    if (!authUser?.wallet || (authUser.role !== 'staff' && authUser.role !== 'pickup' && authUser.role !== 'pickup_person')) return;
     
     setLoadingAllUsers(true);
     try {
@@ -365,7 +367,7 @@ export function useFirebaseData(): UseFirebaseDataReturn {
       }
       
       // For pickup persons: find parents who have authorized this pickup person
-      if (authUser?.role === 'pickup') {
+      if (authUser?.role === 'pickup' || authUser?.role === 'pickup_person') {
         // Find if any parent has authorized the current pickup person (authUser.wallet)
         // and if this student belongs to that parent
         const isAuthorized = allUsers.some(parentUser => {

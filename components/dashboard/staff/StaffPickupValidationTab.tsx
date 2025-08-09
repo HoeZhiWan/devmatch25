@@ -62,6 +62,7 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
       // Could not parse, just store raw data - ensure it's a string
       setQrDetails({ raw: qrString });
     }
+    // Do not auto-validate; user will trigger validation
   };
 
   const handleValidatePickup = async () => {
@@ -94,7 +95,7 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
         body: JSON.stringify({
           qrCodeData: scannedQR,
           idToken,
-          verifyOnly: true // Add flag to only verify, not record pickup
+          verifyOnly: true // Verify first; staff will confirm before recording
         })
       });
 
@@ -112,17 +113,20 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
           scannedQR,
           idToken
         });
-        
-        // Show confirmation dialog
         setShowConfirmation(true);
         setValidationResult(`✅ QR Code verified! Please confirm pickup details below.`);
+        // Close overlay so the staff confirmation section is visible
+        setScannedQR(null);
       } else {
         throw new Error('Pickup validation failed');
       }
       
     } catch (e: any) {
       console.error('Validation error:', e);
-      setValidationResult(`❌ ${e.message}`);
+      const msg = typeof e?.message === 'string' && e.message
+        ? e.message
+        : (typeof e === 'string' ? e : 'Verification failed');
+      setValidationResult(`❌ ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -132,6 +136,9 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
     setLoading(true);
     
     try {
+      if (!pickupData?.scannedQR || !pickupData?.idToken) {
+        throw new Error('No verified QR to confirm. Please validate the QR code first.');
+      }
       // Record the actual pickup
       const response = await fetch('/api/qr/verify', {
         method: 'POST',
@@ -148,11 +155,11 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to record pickup');
+        throw new Error(result?.error || result?.message || 'Failed to record pickup');
       }
 
       if (result.success) {
-        setValidationResult(`✅ Pickup recorded successfully! Student ${pickupData.studentName} has been released.`);
+        setValidationResult(`✅ Pickup recorded successfully! Student ${pickupData.studentName} has been fetched.`);
         
         // Refresh data to update pickup history
         await refreshData();
@@ -172,7 +179,8 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
       }
       
     } catch (e: any) {
-      setValidationResult(`❌ ${e.message}`);
+      const msg = typeof e?.message === 'string' && e.message ? e.message : 'Failed to record pickup';
+      setValidationResult(`❌ ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -230,46 +238,48 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
           
           {/* Overlay showing student info and validate button after QR scan */}
           {scannedQR && (
-            <div className="absolute inset-0 bg-black bg-opacity-75 rounded-xl flex items-center justify-center p-4 z-10">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4 shadow-xl border-2 border-blue-300">
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+              <div
+                className="relative w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-gray-200"
+                role="dialog"
+                aria-modal="true"
+              >
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="absolute top-3 right-3 inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onClick={() => {
+                    setScannedQR(null);
+                    setQrDetails(null);
+                    setValidationResult(null);
+                    setShowConfirmation(false);
+                  }}
+                >
+                  <span className="text-xl leading-none">×</span>
+                </button>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-green-600 mb-2">✅ QR Code Scanned Successfully</div>
-                  <div className="text-sm text-gray-600">Student will be identified from QR code</div>
+                  <div className="text-lg font-semibold text-slate-800">QR Code Scanned</div>
                 </div>
                 
                 {/* QR Details Summary */}
                 {qrDetails && (
-                  <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
-                    <div className="font-semibold text-gray-700 mb-1">QR Data:</div>
+                  <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600">
+                    <div className="font-medium text-slate-700 mb-1">QR Data</div>
                     {qrDetails.id && <div>ID: {qrDetails.id}</div>}
                     {qrDetails.hash && <div>Hash: {qrDetails.hash.slice(0, 16)}...</div>}
                     {qrDetails.raw && <div>Raw: {String(qrDetails.raw).slice(0, 30)}...</div>}
                   </div>
                 )}
                 
-                {/* Action Buttons */}
-                <div className="space-y-3">
+                {/* Actions */}
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
-                    className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-                    onClick={() => {
-                      console.log('Validate button clicked');
-                      handleValidatePickup();
-                    }}
-                    disabled={loading || !scannedQR || showConfirmation}
+                    className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                    onClick={handleValidatePickup}
+                    disabled={loading || !scannedQR}
                   >
-                    {loading ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Validating...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center space-x-2">
-                        <span>🔍</span>
-                        <span>Validate Pickup</span>
-                      </div>
-                    )}
+                    {loading ? 'Validating...' : 'Validate'}
                   </button>
-                  
                   <button
                     className="w-full py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200"
                     onClick={() => {
@@ -277,16 +287,9 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
                       setQrDetails(null);
                       setValidationResult(null);
                     }}
+                    disabled={loading}
                   >
                     Scan Again
-                  </button>
-                  
-                  {/* Debug button - remove in production */}
-                  <button
-                    className="w-full py-1 px-4 bg-purple-200 text-purple-700 rounded-lg hover:bg-purple-300 transition-all duration-200 text-sm"
-                    onClick={debugAPI}
-                  >
-                    Debug API
                   </button>
                 </div>
               </div>
