@@ -76,28 +76,28 @@ export async function updateUserRole(walletAddress: string, newRole: UserRole): 
 /**
  * Get all users by role
  */
-export async function getUsersByRole(role: UserRole): Promise<User[]> {
-  try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('role', '==', role));
-    const querySnapshot = await getDocs(q);
+// export async function getUsersByRole(role: UserRole): Promise<User[]> {
+//   try {
+//     const usersRef = collection(db, 'users');
+//     const q = query(usersRef, where('role', '==', role));
+//     const querySnapshot = await getDocs(q);
     
-    const users: User[] = [];
-    querySnapshot.forEach((doc) => {
-      const userData = doc.data();
-      users.push({
-        walletAddress: userData.walletAddress,
-        role: userData.role,
-        name: userData.name,
-        createdAt: userData.createdAt?.toDate()
-      });
-    });
+//     const users: User[] = [];
+//     querySnapshot.forEach((doc) => {
+//       const userData = doc.data();
+//       users.push({
+//         walletAddress: userData.walletAddress,
+//         role: userData.role,
+//         name: userData.name,
+//         createdAt: userData.createdAt?.toDate()
+//       });
+//     });
     
-    return users;
-  } catch (error) {
-    console.error('Error getting users by role:', error);
-    return [];
-  }
-}
+//     return users;
+//   } catch (error) {
+//     console.error('Error getting users by role:', error);
+//     return [];
+//   }
+// }
 
 export { db };

@@ -1,78 +1,212 @@
 'use client';
 
 import React, { useState } from 'react';
-import { verifyHash, logPickup } from '../../../lib/web3';
-import { Student, PickupHistory } from '../../../types/dashboard';
+import { useFirebaseData } from '../../../hooks/useFirebaseData';
+import { useFirebaseAuth } from '../../../hooks/useFirebaseAuth';
 import QRCodeScanner from '../../QRCodeScanner';
 import TabContainer from '../TabContainer';
 
 interface StaffPickupValidationTabProps {
-  onPickupComplete?: (pickup: PickupHistory) => void;
+  onPickupComplete?: (pickup: any) => void;
 }
 
 const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
   onPickupComplete
 }) => {
-  const [studentId, setStudentId] = useState("");
-  const [scannedQR, setScannedQR] = useState<any>(null);
+  const { students, refreshData } = useFirebaseData();
+  const { getIdToken } = useFirebaseAuth();
+  
+  const [scannedQR, setScannedQR] = useState<string | null>(null);
+  const [qrDetails, setQrDetails] = useState<any>(null);
   const [validationResult, setValidationResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pickupData, setPickupData] = useState<any>(null);
 
-  // Available student IDs for pickup validation
-  const availableIds = ["123", "456", "789", "STU001", "STU002"];
-
-  // Mock students data
-  const [students] = useState<Student[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentWallet: '0x1234...5678' },
-    { id: 'STU002', name: 'Bob Smith', parentWallet: '0x8765...4321' },
-    { id: '123', name: 'Jenny', parentWallet: '0x9999...1111' },
-    { id: '456', name: 'Tom', parentWallet: '0x8888...2222' },
-  ]);
+  // Parse QR code when scanned
+  const handleQRScan = (qrData: any) => {
+    console.log('QR Scanner received:', qrData);
+    
+    // Handle different data formats from QR scanner
+    let qrString: string;
+    if (typeof qrData === 'string') {
+      qrString = qrData;
+    } else if (qrData && qrData.rawData) {
+      qrString = qrData.rawData;
+    } else if (qrData && typeof qrData === 'object') {
+      qrString = JSON.stringify(qrData);
+    } else {
+      qrString = String(qrData);
+    }
+    
+    setScannedQR(qrString);
+    
+    // Try to parse QR details for display
+    try {
+      // If qrData is already an object (parsed JSON), use it
+      if (typeof qrData === 'object' && qrData && !qrData.rawData) {
+        setQrDetails(qrData);
+        return;
+      }
+      
+      // The QR data format is "id|hash" from our Firebase implementation
+      const [id, hash] = qrString.split('|');
+      if (id && hash) {
+        setQrDetails({ id, hash });
+      } else {
+        // Try parsing as JSON (legacy format)
+        const parsed = JSON.parse(qrString);
+        setQrDetails(parsed);
+      }
+    } catch (e) {
+      // Could not parse, just store raw data - ensure it's a string
+      setQrDetails({ raw: qrString });
+    }
+  };
 
   const handleValidatePickup = async () => {
+    console.log('handleValidatePickup called', { scannedQR, loading, showConfirmation });
+    
     setLoading(true);
     setValidationResult(null);
+    
     try {
-      if (!scannedQR || !studentId) {
-        throw new Error("Please scan QR code and enter student ID");
+      if (!scannedQR) {
+        throw new Error("Please scan QR code first");
       }
-      if (!availableIds.includes(studentId.trim())) {
-        throw new Error("Student ID not found in system");
+
+      console.log('Making API call to verify QR code...');
+
+      // Get Firebase ID token
+      const idToken = await getIdToken();
+      if (!idToken) {
+        throw new Error("Authentication required");
       }
-      if (scannedQR.childId !== studentId) {
-        throw new Error("QR code does not match student ID");
+
+      console.log('Making API call to verify QR code...');
+
+      // Call the QR verification API (verify only, don't record pickup yet)
+      const response = await fetch('/api/qr/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          qrCodeData: scannedQR,
+          idToken,
+          verifyOnly: true // Add flag to only verify, not record pickup
+        })
+      });
+
+      const result = await response.json();
+      console.log('API response:', { status: response.status, result });
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Verification failed');
       }
-      const currentTime = new Date();
-      const validUntil = new Date(scannedQR.validUntil);
-      if (currentTime > validUntil) {
-        throw new Error("Pickup authorization has expired");
+
+      if (result.success) {
+        // Store pickup data for confirmation (student info comes from QR code)
+        setPickupData({
+          ...result.data,
+          scannedQR,
+          idToken
+        });
+        
+        // Show confirmation dialog
+        setShowConfirmation(true);
+        setValidationResult(`✅ QR Code verified! Please confirm pickup details below.`);
+      } else {
+        throw new Error('Pickup validation failed');
       }
-      const timestamp = await verifyHash(scannedQR.hash);
-      if (timestamp === 0) {
-        throw new Error("Demo Mode: QR code not found on blockchain");
-      }
-      setValidationResult("✅ Demo Mode: Pickup authorized! Student can be released.");
-      await logPickup(scannedQR.hash);
       
-      // Create pickup record
-      const newPickup: PickupHistory = {
-        id: Date.now().toString(),
-        studentId: studentId,
-        studentName: students.find(s => s.id === studentId)?.name || 'Unknown Student',
-        pickupPerson: scannedQR.pickupWallet || 'Unknown Person',
-        timestamp: new Date().toLocaleString(),
-        status: 'completed'
-      };
-      
-      // Notify parent component if callback provided
-      if (onPickupComplete) {
-        onPickupComplete(newPickup);
+    } catch (e: any) {
+      console.error('Validation error:', e);
+      setValidationResult(`❌ ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmPickup = async () => {
+    setLoading(true);
+    
+    try {
+      // Record the actual pickup
+      const response = await fetch('/api/qr/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          qrCodeData: pickupData.scannedQR,
+          idToken: pickupData.idToken,
+          confirmPickup: true // Flag to record the pickup
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to record pickup');
+      }
+
+      if (result.success) {
+        setValidationResult(`✅ Pickup recorded successfully! Student ${pickupData.studentName} has been released.`);
+        
+        // Refresh data to update pickup history
+        await refreshData();
+        
+        // Notify parent component if callback provided
+        if (onPickupComplete) {
+          onPickupComplete(result.data);
+        }
+        
+        // Clear form and hide confirmation
+        setScannedQR(null);
+        setQrDetails(null);
+        setShowConfirmation(false);
+        setPickupData(null);
+      } else {
+        throw new Error('Failed to record pickup');
       }
       
     } catch (e: any) {
       setValidationResult(`❌ ${e.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelPickup = () => {
+    setShowConfirmation(false);
+    setPickupData(null);
+    setValidationResult(null);
+  };
+
+  // Debug function to test API
+  const debugAPI = async () => {
+    try {
+      const idToken = await getIdToken();
+      console.log('ID Token available:', !!idToken);
+      
+      const response = await fetch('/api/qr/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          qrCodeData: 'test-qr-data',
+          idToken,
+          verifyOnly: true
+        })
+      });
+      
+      console.log('API Response Status:', response.status);
+      const result = await response.json();
+      console.log('API Response:', result);
+    } catch (error) {
+      console.error('API Debug Error:', error);
     }
   };
 
@@ -84,72 +218,191 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
       gradientColors="from-blue-500 to-blue-600"
     >
       <div className="space-y-6">
-        <div className="bg-slate-50 rounded-xl p-6">
-          <label className="block text-sm font-semibold text-slate-700 mb-3">
-            Student ID
-          </label>
-          <input
-            className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white transition-all duration-200"
-            placeholder="Enter student ID (e.g., STU001, 123, 456)"
-            value={studentId}
-            onChange={e => setStudentId(e.target.value)}
-          />
-          {studentId && !availableIds.includes(studentId.trim()) && (
-            <div className="mt-2 text-sm text-red-600">
-              ⚠️ Student ID not found in system
-            </div>
-          )}
-          {studentId && availableIds.includes(studentId.trim()) && (
-            <div className="mt-2 text-sm text-green-600">
-              ✅ Student ID found: {students.find(s => s.id === studentId)?.name || 'Student'}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-slate-50 rounded-xl p-6">
+        <div className="bg-slate-50 rounded-xl p-6 relative min-h-[300px]">
           <label className="block text-sm font-semibold text-slate-700 mb-3">
             Scan Parent/Pickup Person QR Code
+            {scannedQR && <span className="text-green-600 ml-2">✓ Scanned</span>}
           </label>
-          <QRCodeScanner onScan={setScannedQR} />
+          <div className="text-sm text-slate-600 mb-3">
+            The QR code will automatically identify the student. No manual selection needed.
+          </div>
+          <QRCodeScanner onScan={handleQRScan} />
+          
+          {/* Overlay showing student info and validate button after QR scan */}
+          {scannedQR && (
+            <div className="absolute inset-0 bg-black bg-opacity-75 rounded-xl flex items-center justify-center p-4 z-10">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4 shadow-xl border-2 border-blue-300">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600 mb-2">✅ QR Code Scanned Successfully</div>
+                  <div className="text-sm text-gray-600">Student will be identified from QR code</div>
+                </div>
+                
+                {/* QR Details Summary */}
+                {qrDetails && (
+                  <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+                    <div className="font-semibold text-gray-700 mb-1">QR Data:</div>
+                    {qrDetails.id && <div>ID: {qrDetails.id}</div>}
+                    {qrDetails.hash && <div>Hash: {qrDetails.hash.slice(0, 16)}...</div>}
+                    {qrDetails.raw && <div>Raw: {String(qrDetails.raw).slice(0, 30)}...</div>}
+                  </div>
+                )}
+                
+                {/* Action Buttons */}
+                <div className="space-y-3">
+                  <button
+                    className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
+                    onClick={() => {
+                      console.log('Validate button clicked');
+                      handleValidatePickup();
+                    }}
+                    disabled={loading || !scannedQR || showConfirmation}
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Validating...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2">
+                        <span>🔍</span>
+                        <span>Validate Pickup</span>
+                      </div>
+                    )}
+                  </button>
+                  
+                  <button
+                    className="w-full py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200"
+                    onClick={() => {
+                      setScannedQR(null);
+                      setQrDetails(null);
+                      setValidationResult(null);
+                    }}
+                  >
+                    Scan Again
+                  </button>
+                  
+                  {/* Debug button - remove in production */}
+                  <button
+                    className="w-full py-1 px-4 bg-purple-200 text-purple-700 rounded-lg hover:bg-purple-300 transition-all duration-200 text-sm"
+                    onClick={debugAPI}
+                  >
+                    Debug API
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {scannedQR && (
-          <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-            <h4 className="font-semibold text-blue-800 mb-3">QR Code Data:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-blue-700">
-              <div className="bg-white rounded-lg p-3">
-                <span className="font-medium">Child ID:</span> {scannedQR.childId}
+        {/* Pickup Confirmation Dialog */}
+        {showConfirmation && pickupData && (
+          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-6 border-2 border-yellow-200 shadow-lg">
+            <div className="flex items-center space-x-2 mb-4">
+              <span className="text-3xl">⚠️</span>
+              <h3 className="text-xl font-bold text-yellow-800">Confirm Student Pickup</h3>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 mb-4 space-y-3 border border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <span className="font-semibold text-gray-700">Student Information:</span>
+                  <div className="text-lg font-bold text-blue-600">
+                    {pickupData.studentName}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    ID: {pickupData.studentId} | Grade: {pickupData.studentGrade}
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <span className="font-semibold text-gray-700">Pickup Person:</span>
+                  <div className="text-lg font-bold text-green-600">
+                    {pickupData.pickupPersonName || 'Authorized Person'}
+                  </div>
+                  <div className="text-xs text-gray-500 font-mono">
+                    {pickupData.pickupWallet?.slice(0, 12)}...{pickupData.pickupWallet?.slice(-8)}
+                  </div>
+                </div>
+                
+                {pickupData.relationship && (
+                  <div className="space-y-1">
+                    <span className="font-semibold text-gray-700">Relationship:</span>
+                    <div className="text-purple-600 font-medium">{pickupData.relationship}</div>
+                  </div>
+                )}
+                
+                <div className="space-y-1">
+                  <span className="font-semibold text-gray-700">Pickup Time:</span>
+                  <div className="text-gray-800 font-medium">{new Date().toLocaleString()}</div>
+                </div>
               </div>
-              <div className="bg-white rounded-lg p-3">
-                <span className="font-medium">Pickup Wallet:</span> {scannedQR.pickupWallet}
+              
+              {pickupData.authorizationDetails && (
+                <div className="border-t pt-3 mt-3">
+                  <span className="font-semibold text-gray-700">Authorization Period:</span>
+                  <div className="text-sm text-gray-600 mt-1">
+                    📅 Valid from {new Date(pickupData.authorizationDetails.startDate).toLocaleDateString()} 
+                    to {new Date(pickupData.authorizationDetails.endDate).toLocaleDateString()}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-yellow-100 border-l-4 border-yellow-400 p-4 mb-4">
+              <div className="flex items-start space-x-3">
+                <span className="text-yellow-600 text-xl">⚠️</span>
+                <div className="text-sm text-yellow-800">
+                  <div className="font-semibold mb-2">Staff Verification Required:</div>
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="verify-student" className="rounded" />
+                      <label htmlFor="verify-student" className="text-sm">Student identity confirmed</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="verify-pickup" className="rounded" />
+                      <label htmlFor="verify-pickup" className="text-sm">Pickup person has valid ID</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="verify-auth" className="rounded" />
+                      <label htmlFor="verify-auth" className="text-sm">Authorization is current and valid</label>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="bg-white rounded-lg p-3">
-                <span className="font-medium">Valid Until:</span> {scannedQR.validUntil}
-              </div>
-              <div className="bg-white rounded-lg p-3">
-                <span className="font-medium">Parent Wallet:</span> {scannedQR.parentWallet}
-              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
+                onClick={handleConfirmPickup}
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Recording Pickup...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2">
+                    <span>✅</span>
+                    <span>Confirm & Record Pickup</span>
+                  </div>
+                )}
+              </button>
+              
+              <button
+                className="flex-1 py-3 px-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:cursor-not-allowed"
+                onClick={handleCancelPickup}
+                disabled={loading}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <span>❌</span>
+                  <span>Cancel</span>
+                </div>
+              </button>
             </div>
           </div>
         )}
-
-        <button
-          className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
-          onClick={handleValidatePickup}
-          disabled={loading || !studentId || !scannedQR}
-        >
-          {loading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>Validating...</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center space-x-2">
-              <span>🔍</span>
-              <span>Validate Pickup</span>
-            </div>
-          )}
-        </button>
 
         {validationResult && (
           <div className={`p-4 rounded-xl border ${
