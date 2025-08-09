@@ -137,57 +137,6 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
           </div>
         </div>
       </div>
-
-      {/* Manual JSON Input */}
-      <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6">
-        <div className="text-center mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <span className="text-white text-lg">⌨️</span>
-          </div>
-          <h4 className="font-semibold text-green-800 mb-1">Manual JSON Input</h4>
-          <p className="text-sm text-green-600">Paste QR JSON data manually</p>
-        </div>
-        
-        <div className="space-y-4">
-          <textarea
-            className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-200 focus:border-green-500 bg-white transition-all duration-200"
-            placeholder={`Paste QR JSON here... Example:
-{
-  "childId": "123", 
-  "childName": "Alice Johnson",
-  "pickupWallet": "0x1234567890abcdef1234567890abcdef12345678",
-  "validUntil": "${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}",
-  "hash": "pickup-${Date.now()}-abcd1234",
-  "type": "self-pickup"
-}`}
-            value={manualInput}
-            onChange={e => setManualInput(e.target.value)}
-            rows={6}
-          />
-          
-          <div className="flex space-x-3">
-            <button
-              className="flex-1 py-3 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
-              onClick={fillTestData}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <span>📝</span>
-                <span>Fill Test Data</span>
-              </div>
-            </button>
-            <button
-              className="flex-1 py-3 px-6 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
-              onClick={handleManualScan}
-              disabled={!manualInput.trim()}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <span>🔍</span>
-                <span>Process JSON</span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

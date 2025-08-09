@@ -99,7 +99,6 @@ const ParentStudentsTab: React.FC = () => {
             </div>
           ) : students.length === 0 ? (
             <div className="text-center p-8 text-slate-500">
-              <div className="text-4xl mb-2">👶</div>
               <p>No students found. Please add students first.</p>
             </div>
           ) : (

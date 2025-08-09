@@ -177,7 +177,7 @@ export default function ReminderTab() {
       )}
 
       {/* Finish School Time */}
-      <div className="bg-slate-50 rounded-xl p-6 space-y-4">
+      <div className="bg-white/60 rounded-xl p-6 space-y-4">
         <label className="block text-sm font-medium text-slate-700 mb-2">
           Finish School Time <span className="text-red-500">*</span>
         </label>
@@ -193,7 +193,7 @@ export default function ReminderTab() {
           className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
             loading || !finishSchoolTime.trim()
               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl'
+              : 'bg-[#003751] text-white shadow-lg hover:shadow-xl'
           }`}
         >
           {loading ? "Updating..." : "Update Finish School Time"}
@@ -201,7 +201,7 @@ export default function ReminderTab() {
       </div>
 
       {/* Reminder Message Template */}
-      <div className="bg-slate-50 rounded-xl p-6 space-y-4">
+      <div className="bg-white/60 rounded-xl p-6 space-y-4">
         <label className="block text-sm font-medium text-slate-700 mb-2">
           Reminder Message Template <span className="text-red-500">*</span>
         </label>
@@ -218,7 +218,7 @@ export default function ReminderTab() {
           className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
             loading || !messageTemplate.trim()
               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl'
+              : 'bg-[#003751] text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl'
           }`}
         >
           {loading ? "Updating..." : "Update Reminder Message Template"}
@@ -226,7 +226,7 @@ export default function ReminderTab() {
       </div>
 
       {/* Parent Reminder List */}
-      <div className="bg-slate-50 rounded-xl p-6">
+      <div className="bg-white/60 rounded-xl p-6">
         <h3 className="text-lg font-bold text-slate-800 mb-4">Parent Reminder List</h3>
         <div className="mb-4 flex items-center gap-3">
           <button
@@ -235,7 +235,7 @@ export default function ReminderTab() {
             className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
               loading
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'bg-[#003751] text-white'
             }`}
           >
             {loading ? 'Sending...' : 'Send reminders now'}
