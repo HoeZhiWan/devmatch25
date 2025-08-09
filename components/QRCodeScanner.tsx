@@ -12,38 +12,61 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const isScanned = useRef(false);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const [manualInput, setManualInput] = useState("");
+  const [cameraStatus, setCameraStatus] = useState<'loading' | 'granted' | 'denied' | 'error'>('loading');
 
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
     codeReaderRef.current = codeReader;
 
     if (videoRef.current) {
-      codeReader.decodeFromVideoDevice(
-        undefined,
-        videoRef.current,
-        async (result: Result | undefined, error: Exception | undefined) => {
-          if (result && !isScanned.current) {
-            const text = result.getText();
-            console.log("✅ Scanned:", text);
-            isScanned.current = true;
+      // Request camera permission explicitly
+      navigator.mediaDevices?.getUserMedia({ video: true })
+        .then(() => {
+          console.log("✅ Camera permission granted");
+          setCameraStatus('granted');
+          codeReader.decodeFromVideoDevice(
+            undefined,
+            videoRef.current!,
+            async (result: Result | undefined, error: Exception | undefined) => {
+              if (result && !isScanned.current) {
+                const text = result.getText();
+                console.log("✅ Scanned:", text);
+                isScanned.current = true;
 
-            try {
-              // Try to parse as JSON first
-              const data = JSON.parse(text);
-              onScan?.(data);
-            } catch {
-              // If not JSON, pass the raw text
-              onScan?.({ rawData: text });
+                try {
+                  // Try to parse as JSON first
+                  const data = JSON.parse(text);
+                  onScan?.(data);
+                } catch {
+                  // If not JSON, pass the raw text
+                  onScan?.({ rawData: text });
+                }
+
+                // Reset after a delay to allow for new scans
+                setTimeout(() => {
+                  isScanned.current = false;
+                }, 2000);
+              }
+              
+              // Log camera errors but don't spam console
+              if (error && error.name !== 'NotFoundException') {
+                console.warn("QR Scanner:", error.message);
+              }
             }
-
-            // Reset after a delay to allow for new scans
-            setTimeout(() => {
-              isScanned.current = false;
-            }, 2000);
-          }
-        }
-      );
+          );
+        })
+        .catch((error) => {
+          console.error("❌ Camera access denied:", error);
+          setCameraStatus(error.name === 'NotAllowedError' ? 'denied' : 'error');
+        });
     }
+
+    // Cleanup function
+    return () => {
+      // The camera stream will be automatically cleaned up when the component unmounts
+      // ZXing browser handles this internally
+      console.log('QR Scanner component unmounting');
+    };
   }, [onScan]);
 
   const handleManualScan = () => {
@@ -54,6 +77,18 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     } catch {
       alert("Invalid JSON format. Please check your input.");
     }
+  };
+
+  const fillTestData = () => {
+    const testData = {
+      childId: "123",
+      childName: "Alice Johnson", 
+      pickupWallet: "0x1234567890abcdef1234567890abcdef12345678",
+      validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      hash: `pickup-${Date.now()}-abcd1234`,
+      type: "self-pickup"
+    };
+    setManualInput(JSON.stringify(testData, null, 2));
   };
 
   return (
@@ -77,8 +112,25 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
             />
           </div>
           
-          <div className="text-center text-sm text-slate-600">
-            <p>Position QR code within the frame to scan</p>
+          <div className="text-center text-sm">
+            {cameraStatus === 'loading' && (
+              <p className="text-blue-600">🔄 Requesting camera access...</p>
+            )}
+            {cameraStatus === 'granted' && (
+              <p className="text-green-600">📱 Position QR code within the frame to scan</p>
+            )}
+            {cameraStatus === 'denied' && (
+              <div className="text-red-600">
+                <p>❌ Camera access denied</p>
+                <p className="text-xs mt-1">Please allow camera access and refresh the page</p>
+              </div>
+            )}
+            {cameraStatus === 'error' && (
+              <div className="text-red-600">
+                <p>⚠️ Camera error</p>
+                <p className="text-xs mt-1">Please check your camera and try again</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -96,22 +148,41 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
         <div className="space-y-4">
           <textarea
             className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-200 focus:border-green-500 bg-white transition-all duration-200"
-            placeholder="Paste QR JSON here... Example: {&quot;childId&quot;: &quot;123&quot;, &quot;pickupWallet&quot;: &quot;0x...&quot;, &quot;type&quot;: &quot;self-pickup&quot;}"
+            placeholder={`Paste QR JSON here... Example:
+{
+  "childId": "123", 
+  "childName": "Alice Johnson",
+  "pickupWallet": "0x1234567890abcdef1234567890abcdef12345678",
+  "validUntil": "${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}",
+  "hash": "pickup-${Date.now()}-abcd1234",
+  "type": "self-pickup"
+}`}
             value={manualInput}
             onChange={e => setManualInput(e.target.value)}
-            rows={4}
+            rows={6}
           />
           
-          <button
-            className="w-full py-3 px-6 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
-            onClick={handleManualScan}
-            disabled={!manualInput.trim()}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <span>🔍</span>
-              <span>Process JSON</span>
-            </div>
-          </button>
+          <div className="flex space-x-3">
+            <button
+              className="flex-1 py-3 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+              onClick={fillTestData}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>📝</span>
+                <span>Fill Test Data</span>
+              </div>
+            </button>
+            <button
+              className="flex-1 py-3 px-6 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+              onClick={handleManualScan}
+              disabled={!manualInput.trim()}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>🔍</span>
+                <span>Process JSON</span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
