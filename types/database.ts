@@ -1,10 +1,54 @@
 export interface Student {
   id: string; // Format: "CH001"
   name: string;
-  parentWallet: string; // Lowercase hex address
+  grade: string;
+  parentId: string; // Parent wallet address (lowercase hex)
   createdAt: Date;
 }
 
+export interface PickupPerson {
+  walletAddress: string; // Pickup person's wallet (lowercase hex)
+  relationship: string; // e.g., "father", "mother", "guardian", etc.
+  startDate: string; // ISO date string
+  endDate: string; // ISO date string
+}
+
+export interface User {
+  id: string; // Wallet address (lowercase hex)
+  walletAddress: string; // Wallet address (lowercase hex)
+  name: string;
+  contactNumber?: string;
+  role: 'parent' | 'pickup_person' | 'staff';
+  createdAt: Date;
+  lastLoginAt: Date;
+  // Pickup collection exists only when role is 'parent'
+  pickup?: Record<string, PickupPerson>; // Key is pickup person's wallet address
+}
+
+export interface PickupHistory {
+  id: string; // Random ID
+  blockchainHash: string;
+  contractTxHash: string;
+  pickupBy: string; // Pickup person wallet address
+  staffId: string; // Staff wallet address
+  studentId: string; // Student ID
+  time: Date;
+}
+
+export interface AuthorizationRecord {
+  id: string;
+  qrCodeId: string;
+  hash: string; // Hash for verification
+  studentId: string;
+  pickupWallet: string; // Pickup person's wallet
+  parentWallet: string; // Parent's wallet
+  generatedAt: Date;
+  expiresAt: Date;
+  isUsed: boolean;
+  isActive: boolean;
+}
+
+// Legacy interfaces for backward compatibility
 export interface Authorization {
   id: string;
   studentId: string;
@@ -42,6 +86,12 @@ export interface QRCodeData {
   generatedAt: Date;
   expiresAt: Date;
   isUsed: boolean;
+}
+
+// QR Code for simplified scanning
+export interface QRCodeContent {
+  id: string; // Authorization record ID
+  hash: string; // Verification hash
 }
 
 // =========================

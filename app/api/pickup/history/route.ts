@@ -1,34 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAllPickupHistory, getStudentById } from '@/lib/firebase/server-collections';
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Implement pickup history retrieval logic
-    // This will be implemented later with proper database integration
-    
-    const searchParams = request.nextUrl.searchParams;
-    const wallet = searchParams.get('wallet');
-    
-    if (!wallet) {
-      return NextResponse.json(
-        { error: 'Wallet address is required' },
-        { status: 400 }
-      );
-    }
+    // Optional filters (not yet applied): wallet, limit, date range
+    // const searchParams = request.nextUrl.searchParams;
 
-    // Placeholder response - replace with actual database query
-    const mockHistory = [
-      {
-        id: '1',
-        studentId: 'CH001',
-        pickupWallet: wallet,
-        scannedBy: 'staff@school.com',
-        timestamp: new Date().toISOString(),
-        status: 'success',
-        qrCodeId: 'qr_123'
-      }
-    ];
+    const rawHistory = await getAllPickupHistory();
 
-    return NextResponse.json({ history: mockHistory });
+    // Enrich with student names and normalized ISO time
+    const history = await Promise.all(
+      rawHistory.map(async (rec) => {
+        const student = await getStudentById(rec.studentId);
+        let isoTime = '';
+        try {
+          if (rec.time instanceof Date) {
+            isoTime = rec.time.toISOString();
+          } else if (rec.time && typeof (rec.time as any)?.toDate === 'function') {
+            isoTime = (rec.time as any).toDate().toISOString();
+          } else if (rec.time) {
+            const d = new Date(rec.time as any);
+            isoTime = isNaN(d.getTime()) ? '' : d.toISOString();
+          }
+        } catch {
+          isoTime = '';
+        }
+        return {
+          id: rec.id,
+          blockchainHash: rec.blockchainHash,
+          contractTxHash: rec.contractTxHash,
+          pickupBy: rec.pickupBy,
+          staffId: rec.staffId,
+          studentId: rec.studentId,
+          studentName: student?.name || rec.studentId,
+          time: isoTime,
+        };
+      })
+    );
+
+    return NextResponse.json({ success: true, history });
   } catch (error) {
     console.error('Error fetching pickup history:', error);
     return NextResponse.json(

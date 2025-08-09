@@ -1,25 +1,37 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PickupHistory } from '../../../types/dashboard';
+import { useFirebaseData } from '../../../hooks/useFirebaseData';
+import { useWallet } from '../../../hooks/useWallet';
 import TabContainer from '../TabContainer';
 
 const PickupHistoryTab: React.FC = () => {
+  const { address } = useWallet();
+  const { pickupHistory, loading } = useFirebaseData();
+  
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedChild, setSelectedChild] = useState("All children");
+  const [selectedStudent, setSelectedStudent] = useState("All students");
 
-  // Mock data - in real app, fetch from database based on pickup person's history
-  const [pickupHistory] = useState<PickupHistory[]>([
-    { id: '1', studentId: 'STU001', studentName: 'Alice Johnson', pickupPerson: 'You', timestamp: '2024-01-15 14:30', status: 'completed' },
-    { id: '2', studentId: 'STU002', studentName: 'Bob Smith', pickupPerson: 'You', timestamp: '2024-01-15 15:45', status: 'completed' },
-  ]);
+  // Filter history to only show pickups by the current user
+  const userPickupHistory = pickupHistory.filter(record => 
+    record.pickupBy.toLowerCase() === address?.toLowerCase()
+  );
 
-  const allChildren = ["All children", ...Array.from(new Set(pickupHistory.map(h => h.studentName)))];
+  // Get student names from the history by looking up student data
+  const { students } = useFirebaseData();
+  const getStudentName = (studentId: string) => {
+    const student = students.find(s => s.id === studentId);
+    return student ? student.name : studentId;
+  };
 
-  const filteredHistory = pickupHistory.filter(item => {
-    const matchesDate = !selectedDate || item.timestamp.includes(selectedDate);
-    const matchesChild = selectedChild === "All children" || item.studentName === selectedChild;
-    return matchesDate && matchesChild;
+  const allStudents = ["All students", ...Array.from(new Set(userPickupHistory.map(h => getStudentName(h.studentId))))];
+
+  const filteredHistory = userPickupHistory.filter(item => {
+    const itemDate = new Date(item.time).toISOString().split('T')[0];
+    const studentName = getStudentName(item.studentId);
+    const matchesDate = !selectedDate || itemDate === selectedDate;
+    const matchesStudent = selectedStudent === "All students" || studentName === selectedStudent;
+    return matchesDate && matchesStudent;
   });
 
   return (
@@ -43,18 +55,18 @@ const PickupHistoryTab: React.FC = () => {
             />
           </div>
           <div>
-            <label htmlFor="childFilter" className="block text-sm font-medium text-slate-700 mb-2">
-              Filter by Child
+            <label htmlFor="studentFilter" className="block text-sm font-medium text-slate-700 mb-2">
+              Filter by Student
             </label>
             <select
-              id="childFilter"
-              value={selectedChild}
-              onChange={(e) => setSelectedChild(e.target.value)}
+              id="studentFilter"
+              value={selectedStudent}
+              onChange={(e) => setSelectedStudent(e.target.value)}
               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-200 focus:border-green-500"
             >
-              {allChildren.map((child) => (
-                <option key={child} value={child}>
-                  {child}
+              {allStudents.map((student) => (
+                <option key={student} value={student}>
+                  {student}
                 </option>
               ))}
             </select>
@@ -63,7 +75,7 @@ const PickupHistoryTab: React.FC = () => {
             <button
               onClick={() => {
                 setSelectedDate('');
-                setSelectedChild('All children');
+                setSelectedStudent('All students');
               }}
               className="w-full px-4 py-2 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors duration-200"
               style={{ backgroundColor: 'var(--light-blue)' }}
@@ -74,14 +86,20 @@ const PickupHistoryTab: React.FC = () => {
         </div>
 
         {/* History Table */}
-        {filteredHistory.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="text-slate-400 text-6xl mb-4">⏳</div>
+            <h3 className="text-xl font-medium text-slate-600 mb-2">Loading History...</h3>
+            <p className="text-slate-500">Please wait while we fetch your pickup records.</p>
+          </div>
+        ) : filteredHistory.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-slate-400 text-6xl mb-4">📋</div>
             <h3 className="text-xl font-medium text-slate-600 mb-2">No Pickup Records</h3>
             <p className="text-slate-500">
-              {selectedDate || selectedChild !== 'All children' 
+              {selectedDate || selectedStudent !== 'All students' 
                 ? 'No records match your current filters.' 
-                : 'You haven\'t picked up any children yet.'}
+                : 'You haven\'t picked up any students yet.'}
             </p>
           </div>
         ) : (
@@ -89,17 +107,17 @@ const PickupHistoryTab: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Child</th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Student</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Student ID</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Date & Time</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Status</th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Blockchain</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredHistory.map((record) => (
                   <tr key={record.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                     <td className="py-4 px-4">
-                      <div className="font-medium text-slate-800">{record.studentName}</div>
+                      <div className="font-medium text-slate-800">{getStudentName(record.studentId)}</div>
                     </td>
                     <td className="py-4 px-4">
                       <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
@@ -108,7 +126,7 @@ const PickupHistoryTab: React.FC = () => {
                     </td>
                     <td className="py-4 px-4">
                       <div className="text-slate-600 text-sm">
-                        {record.timestamp}
+                        {new Date(record.time).toLocaleString()}
                       </div>
                     </td>
                     <td className="py-4 px-4">
@@ -119,6 +137,9 @@ const PickupHistoryTab: React.FC = () => {
                       }`}>
                         {record.status === 'completed' ? 'Completed' : 'Pending'}
                       </span>
+                      <div className="text-xs text-slate-500 mt-1">
+                        Tx: {record.contractTxHash.slice(0, 8)}...
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -133,18 +154,23 @@ const PickupHistoryTab: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-green-700 font-medium">Total Pickups:</span>
-              <span className="ml-2 text-green-800">{pickupHistory.length}</span>
+              <span className="ml-2 text-green-800">{userPickupHistory.length}</span>
             </div>
             <div>
               <span className="text-green-700 font-medium">This Month:</span>
               <span className="ml-2 text-green-800">
-                {pickupHistory.filter(h => h.timestamp.includes('2024-01')).length}
+                {userPickupHistory.filter(h => {
+                  const recordDate = new Date(h.time);
+                  const currentMonth = new Date().getMonth();
+                  const currentYear = new Date().getFullYear();
+                  return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+                }).length}
               </span>
             </div>
             <div>
-              <span className="text-green-700 font-medium">Children:</span>
+              <span className="text-green-700 font-medium">Students:</span>
               <span className="ml-2 text-green-800">
-                {new Set(pickupHistory.map(h => h.studentName)).size}
+                {new Set(userPickupHistory.map(h => h.studentId)).size}
               </span>
             </div>
           </div>

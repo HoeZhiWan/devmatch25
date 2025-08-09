@@ -1,87 +1,92 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWallet } from '../../../hooks/useWallet';
-import { useSignature } from '../../../hooks/useSignature';
-import { logAuthorization } from '../../../lib/web3';
-import { AuthorizationMessage } from '../../../types/wallet';
-import { Child, QRData } from '../../../types/dashboard';
+import { useFirebaseData } from '../../../hooks/useFirebaseData';
+import { useFirebaseAuth } from '../../../hooks/useFirebaseAuth';
 import QRCodeGenerator from '../../QRCodeGenerator';
 import TabContainer from '../TabContainer';
 
 const PickupAuthorizationsTab: React.FC = () => {
   const { address, isConnected } = useWallet();
-  const { signAuthorization } = useSignature();
+  const { 
+    authorizedStudents, 
+    students,
+    allUsers,
+    currentUser,
+    loading: dataLoading, 
+    generateQRCode 
+  } = useFirebaseData();
+  const { user: authUser } = useFirebaseAuth();
 
-  const [selectedChild, setSelectedChild] = useState<string>("");
+  const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [qrValue, setQrValue] = useState<string | null>(null);
-  const [blockchainResult, setBlockchainResult] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Mock data - in real app, fetch from database based on pickup person's authorized children
-  const [children] = useState<Child[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentWallet: '0x1234...5678' },
-    { id: 'STU002', name: 'Bob Smith', parentWallet: '0x8765...4321' },
-  ]);
+  // Debug logging
+  useEffect(() => {
+    console.log('Pickup Authorization Debug:', {
+      address,
+      currentUser,
+      authUser,
+      authRole: authUser?.role,
+      currentUserRole: currentUser?.role,
+      authorizedStudents,
+      allStudents: students,
+      allUsers,
+      dataLoading
+    });
 
-  const handlePickupChild = async () => {
+    // Additional detailed debugging for pickup authorization
+    if (authUser?.role === 'pickup') {
+      console.log('Pickup Person Debug - Checking authorizations:');
+      allUsers.forEach(user => {
+        if (user.role === 'parent' && user.pickup) {
+          const pickupAuth = user.pickup[address || ''];
+          if (pickupAuth) {
+            console.log(`Found authorization from parent ${user.name} (${user.id}):`, pickupAuth);
+            const parentStudents = students.filter(s => s.parentId === user.id);
+            console.log(`Parent's students:`, parentStudents);
+          }
+        }
+      });
+    }
+  }, [address, currentUser, authorizedStudents, students, allUsers, dataLoading]);
+
+  const handlePickupStudent = async () => {
     if (!isConnected || !address) {
-      setBlockchainResult('Please connect your wallet first');
+      setResult('Please connect your wallet first');
       return;
     }
 
-    if (!selectedChild) {
-      setBlockchainResult('Please select a child first');
+    if (!selectedStudent) {
+      setResult('Please select a student first');
       return;
     }
 
     setLoading(true);
-    setBlockchainResult(null);
+    setResult(null);
     setQrValue(null);
 
     try {
-      const selectedChildData = children.find(child => child.id === selectedChild);
-      if (!selectedChildData) {
-        throw new Error('Selected child not found');
+      const selectedStudentData = authorizedStudents.find(student => student.id === selectedStudent);
+      if (!selectedStudentData) {
+        throw new Error('Selected student not found');
       }
 
-      // Create authorization using wallet integration
-      const authParams: Omit<AuthorizationMessage, 'parentWallet' | 'timestamp'> = {
-        pickupWallet: address, // Pickup person's wallet
-        studentName: selectedChildData.name,
-        studentId: selectedChildData.id,
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Valid for 24 hours
-      };
-
-      const signResult = await signAuthorization(authParams);
-
-      if (!signResult.success) {
-        throw new Error(signResult.error || 'Failed to sign authorization');
+      // Generate QR code using Firebase integration
+      const qrData = await generateQRCode(selectedStudent);
+      
+      if (!qrData) {
+        throw new Error('Failed to generate QR code');
       }
 
-      // Simulate blockchain anchoring
-      const authHash = `pickup-${Date.now()}-${Math.random().toString(16).substr(2, 8)}`;
-      const txHash = await logAuthorization(authHash);
-      setBlockchainResult(`Authorization signed and anchored! Tx: ${txHash}`);
-
-      // Create QR data
-      const qrData: QRData = {
-        childId: selectedChild,
-        childName: selectedChildData.name,
-        pickupWallet: address,
-        validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        parentWallet: selectedChildData.parentWallet,
-        signature: signResult.signature || '',
-        message: signResult.message || '',
-        hash: authHash,
-        type: 'self-pickup'
-      };
-
-      setQrValue(JSON.stringify(qrData));
+      setQrValue(qrData.qrCodeData);
+      setResult(`QR code generated successfully! Valid until: ${new Date(qrData.expiresAt).toLocaleString()}`);
 
     } catch (e: any) {
-      setBlockchainResult(`Error: ${e.message}`);
+      setResult(`Error: ${e.message}`);
     } finally {
       setLoading(false);
     }
@@ -95,30 +100,49 @@ const PickupAuthorizationsTab: React.FC = () => {
       <div className="space-y-6">
         <div className="rounded-xl p-6" style={{backgroundColor: 'var(--light-blue)'}}>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
-            Select Child (Authorized to You)
+            Select Student (Authorized to You)
           </label>
           <select
             className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-200 focus:border-slate-100 bg-white transition-all duration-200"
-            value={selectedChild}
-            onChange={e => setSelectedChild(e.target.value)}
+            value={selectedStudent}
+            onChange={e => setSelectedStudent(e.target.value)}
+            disabled={dataLoading}
           >
-            <option value="">Choose a child...</option>
-            {children.map(child => (
-              <option key={child.id} value={child.id}>
-                {child.name} ({child.id})
+            <option value="">Choose a student...</option>
+            {authorizedStudents.map(student => (
+              <option key={student.id} value={student.id}>
+                {student.name} ({student.id}) - Grade {student.grade}
               </option>
             ))}
           </select>
-          <p className="text-xs text-slate-500 mt-2">
-            Only children you're authorized to pick up will appear here
-          </p>
+          <div className="text-xs text-slate-500 mt-2">
+            {dataLoading ? (
+              'Loading authorized students...'
+            ) : authorizedStudents.length === 0 ? (
+              <div>
+                <div>No students authorized for pickup.</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Debug: Total students: {students.length}, All users: {allUsers.length}
+                  {currentUser && (
+                    <div>Current user role: {currentUser.role}, wallet: {address}</div>
+                  )}
+                  {authUser && (
+                    <div>Auth user role: {authUser.role}, wallet: {authUser.wallet}</div>
+                  )}
+                  <div>Role check: Is pickup? {authUser?.role === 'pickup' ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+            ) : (
+              `${authorizedStudents.length} students you're authorized to pick up`
+            )}
+          </div>
         </div>
 
         <button
           className="w-full py-4 px-6 text-white rounded-xl disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
           style= {{backgroundColor: 'var(--color-dark)'}}
-          onClick={handlePickupChild}
-          disabled={loading || !selectedChild}
+          onClick={handlePickupStudent}
+          disabled={loading || !selectedStudent || dataLoading}
         >
           {loading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -132,15 +156,15 @@ const PickupAuthorizationsTab: React.FC = () => {
           )}
         </button>
 
-        {blockchainResult && (
+        {result && (
           <div className={`p-4 rounded-xl border ${
-            blockchainResult.startsWith('Authorization') 
+            result.startsWith('QR code generated') 
               ? 'bg-green-50 border-green-200 text-green-800' 
               : 'bg-red-50 border-red-200 text-red-800'
           }`}>
             <div className="flex items-center space-x-2">
-              <span>{blockchainResult.startsWith('Authorization') ? '✅' : '❌'}</span>
-              <span>{blockchainResult}</span>
+              <span>{result.startsWith('QR code generated') ? '✅' : '❌'}</span>
+              <span>{result}</span>
             </div>
           </div>
         )}
@@ -157,7 +181,7 @@ const PickupAuthorizationsTab: React.FC = () => {
               </p>
               <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-xs font-medium" style={{color: 'var(--color-dark)'}}>
-                  Valid until: {new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleString()}
+                  QR Code generated for immediate use
                 </p>
               </div>
             </div>

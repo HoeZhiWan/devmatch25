@@ -1,35 +1,26 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useWallet } from '../../../hooks/useWallet';
-import { useSignature } from '../../../hooks/useSignature';
-import { logAuthorization } from '../../../lib/web3';
-import { AuthorizationMessage } from '../../../types/wallet';
-import { Child, QRData } from '../../../types/dashboard';
+import { useFirebaseData } from '../../../hooks/useFirebaseData';
 import QRCodeGenerator from '../../QRCodeGenerator';
 import TabContainer from '../TabContainer';
 
 const ParentStudentsTab: React.FC = () => {
-  const { address, isConnected } = useWallet();
-  const { signAuthorization } = useSignature();
+  const { 
+    students, 
+    loadingStudents, 
+    generateQRCode, 
+    error, 
+    clearError 
+  } = useFirebaseData();
 
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [qrValue, setQrValue] = useState<string | null>(null);
+  const [qrExpiration, setQrExpiration] = useState<string | null>(null);
   const [blockchainResult, setBlockchainResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Mock data - in real app, fetch from database
-  const [children] = useState<Child[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentWallet: address || '0x1234...5678' },
-    { id: 'STU002', name: 'Bob Smith', parentWallet: address || '0x8765...4321' },
-  ]);
-
   const handlePickupMyChild = async () => {
-    if (!isConnected || !address) {
-      setBlockchainResult('Please connect your wallet first');
-      return;
-    }
-
     if (!selectedChild) {
       setBlockchainResult('Please select a child first');
       return;
@@ -38,47 +29,25 @@ const ParentStudentsTab: React.FC = () => {
     setLoading(true);
     setBlockchainResult(null);
     setQrValue(null);
+    setQrExpiration(null);
+    clearError();
     
     try {
-      const selectedChildData = children.find(child => child.id === selectedChild);
+      const selectedChildData = students.find(child => child.id === selectedChild);
       if (!selectedChildData) {
         throw new Error('Selected child not found');
       }
 
-      // Create authorization using wallet integration
-      const authParams: Omit<AuthorizationMessage, 'parentWallet' | 'timestamp'> = {
-        pickupWallet: address, // Parent picking up their own child
-        studentName: selectedChildData.name,
-        studentId: selectedChildData.id,
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Valid for 24 hours
-      };
-
-      const signResult = await signAuthorization(authParams);
+      // Generate QR code using the new Firebase API
+      const result = await generateQRCode(selectedChild);
       
-      if (!signResult.success) {
-        throw new Error(signResult.error || 'Failed to sign authorization');
+      if (!result) {
+        throw new Error('Failed to generate QR code');
       }
 
-      // Simulate blockchain anchoring
-      const authHash = `pickup-${Date.now()}-${Math.random().toString(16).substr(2, 8)}`;
-      const txHash = await logAuthorization(authHash);
-      setBlockchainResult(`Authorization signed and anchored! Tx: ${txHash}`);
-      
-      // Create QR data
-      const qrData: QRData = {
-        childId: selectedChild,
-        childName: selectedChildData.name,
-        pickupWallet: address,
-        validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        parentWallet: address,
-        signature: signResult.signature || '',
-        message: signResult.message || '',
-        hash: authHash,
-        type: 'self-pickup'
-      };
-
-      setQrValue(JSON.stringify(qrData));
+      setQrValue(result.qrCodeData);
+      setQrExpiration(result.expiresAt);
+      setBlockchainResult(`QR code generated successfully for ${selectedChildData.name}!`);
 
     } catch (e: any) {
       setBlockchainResult(`Error: ${e.message}`);
@@ -87,35 +56,73 @@ const ParentStudentsTab: React.FC = () => {
     }
   };
 
+  // Clear results when changing child selection
+  const handleChildChange = (childId: string) => {
+    setSelectedChild(childId);
+    setQrValue(null);
+    setQrExpiration(null);
+    setBlockchainResult(null);
+    clearError();
+  };
+
   return (
     <TabContainer
       title="Pickup My Child"
       description="Generate a QR code for child pickup authorization"
     >
       <div className="space-y-6">
+        {/* Error display */}
+        {error && (
+          <div className="p-4 rounded-xl border bg-red-50 border-red-200 text-red-800">
+            <div className="flex items-center space-x-2">
+              <span>❌</span>
+              <span>{error}</span>
+              <button 
+                onClick={clearError}
+                className="ml-auto text-sm underline hover:no-underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
             Select Child
           </label>
-          <select
-            className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 bg-white transition-all duration-200"
-            value={selectedChild}
-            onChange={e => setSelectedChild(e.target.value)}
-          >
-            <option value="">Choose a child...</option>
-            {children.map(child => (
-              <option key={child.id} value={child.id}>
-                {child.name} ({child.id})
-              </option>
-            ))}
-          </select>
+          
+          {loadingStudents ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="ml-2 text-slate-600">Loading students...</span>
+            </div>
+          ) : students.length === 0 ? (
+            <div className="text-center p-8 text-slate-500">
+              <div className="text-4xl mb-2">👶</div>
+              <p>No students found. Please add students first.</p>
+            </div>
+          ) : (
+            <select
+              className="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 bg-white transition-all duration-200"
+              value={selectedChild}
+              onChange={e => handleChildChange(e.target.value)}
+            >
+              <option value="">Choose a child...</option>
+              {students.map(child => (
+                <option key={child.id} value={child.id}>
+                  {child.name} - {child.grade} ({child.id})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <button
           className="w-full py-4 px-6 text-white rounded-xl disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
           style={{ backgroundColor: 'var(--color-dark)' }}
           onClick={handlePickupMyChild}
-          disabled={loading || !selectedChild}
+          disabled={loading || !selectedChild || loadingStudents}
         >
           {loading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -131,12 +138,12 @@ const ParentStudentsTab: React.FC = () => {
 
         {blockchainResult && (
           <div className={`p-4 rounded-xl border ${
-            blockchainResult.startsWith('Authorization') 
+            blockchainResult.startsWith('QR code generated') 
               ? 'bg-green-50 border-green-200 text-green-800' 
               : 'bg-red-50 border-red-200 text-red-800'
           }`}>
             <div className="flex items-center space-x-2">
-              <span>{blockchainResult.startsWith('Authorization') ? '✅' : '❌'}</span>
+              <span>{blockchainResult.startsWith('QR code generated') ? '✅' : '❌'}</span>
               <span>{blockchainResult}</span>
             </div>
           </div>
@@ -149,9 +156,17 @@ const ParentStudentsTab: React.FC = () => {
               <div className="bg-white rounded-xl p-6 inline-block shadow-lg">
                 <QRCodeGenerator value={qrValue} />
               </div>
-              <p className="mt-4 text-sm" style={{ color: 'var(--color-dark)' }}>
-                Show this QR code to staff for pickup authorization
-              </p>
+              <div className="mt-4 text-sm text-indigo-600" style={{ color: 'var(--color-dark)' }}>
+                <p>Show this QR code to staff for pickup authorization</p>
+                {qrExpiration && (
+                  <p className="font-medium">
+                    Expires: {new Date(qrExpiration).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <div className="mt-4 p-3 bg-indigo-100 rounded-lg text-xs text-indigo-700">
+                <p>⚠️ This QR code is for one-time use only and will expire automatically.</p>
+              </div>
             </div>
           </div>
         )}

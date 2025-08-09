@@ -1,35 +1,146 @@
 'use client';
 
-import React, { useState } from 'react';
-import { PickupHistory } from '../../../types/dashboard';
+import React, { useEffect, useMemo, useState } from 'react';
 import TabContainer from '../TabContainer';
 
-interface StaffPickupLogsTabProps {
-  newPickups?: PickupHistory[];
-}
+type CanonicalHistory = {
+  id: string;
+  studentId: string;
+  pickupBy: string;
+  staffId: string;
+  time: string; // ISO string
+  blockchainHash?: string;
+  contractTxHash?: string;
+};
 
-const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = [] }) => {
+type StudentLite = { id: string; name: string };
+
+const StaffPickupLogsTab: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("All students");
+  const [history, setHistory] = useState<CanonicalHistory[]>([]);
+  const [students, setStudents] = useState<StudentLite[]>([]);
+  const [users, setUsers] = useState<{ id: string; walletAddress: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Available students for filtering (should be fetched from database)
-  const allStudents = ["All students", "Jenny", "Tom", "Sara", "Phoebe", "Alice Johnson", "Bob Smith"];
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/pickup/history');
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to load pickup history');
+        }
+        const items = Array.isArray(data.history) ? data.history : [];
+        // Normalize time to safe ISO string
+        setHistory(items.map((h: any) => {
+          const isoTime = typeof h.time === 'string' && h.time
+            ? h.time
+            : h.time && typeof h.time?.toDate === 'function'
+            ? h.time.toDate().toISOString()
+            : (() => { const d = new Date(h.time); return isNaN(d.getTime()) ? '' : d.toISOString(); })();
+          return {
+            id: h.id,
+            studentId: h.studentId,
+            studentName: (h as any).studentName,
+            pickupBy: h.pickupBy,
+            staffId: h.staffId,
+            time: isoTime,
+            blockchainHash: h.blockchainHash,
+            contractTxHash: h.contractTxHash,
+          };
+        }));
+      } catch (e: any) {
+        setError(e.message || 'Failed to load pickup history');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
 
-  // Mock data combined with new pickups
-  const [baseHistory] = useState<PickupHistory[]>([
-    { id: '1', studentId: 'STU001', studentName: 'Alice Johnson', pickupPerson: '0x1234...5678', timestamp: '2024-01-15 14:30', status: 'completed' },
-    { id: '2', studentId: 'STU002', studentName: 'Bob Smith', pickupPerson: '0x8765...4321', timestamp: '2024-01-15 15:45', status: 'pending' },
-    { id: '3', studentId: '123', studentName: 'Jenny', pickupPerson: 'Parent', timestamp: '2025-08-05 17:40', status: 'completed' },
-    { id: '4', studentId: '456', studentName: 'Tom', pickupPerson: 'Guardian', timestamp: '2025-08-06 16:20', status: 'completed' },
-  ]);
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const res = await fetch('/api/students');
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const list = (data.students || []).map((s: any) => ({ id: s.id, name: s.name }));
+          setStudents(list);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchStudents();
+  }, []);
 
-  const pickupHistory = [...newPickups, ...baseHistory];
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const list = (data.users || []).map((u: any) => ({
+            id: u.id,
+            walletAddress: (u.walletAddress || u.id || '').toLowerCase(),
+            name: u.name || 'Unknown User',
+          }));
+          setUsers(list);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchUsers();
+  }, []);
 
-  const filteredHistory = pickupHistory.filter(item => {
-    const matchesDate = !selectedDate || item.timestamp.includes(selectedDate);
-    const matchesStudent = selectedStudent === "All students" || item.studentName === selectedStudent;
-    return matchesDate && matchesStudent;
-  });
+  const studentNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of students) map[s.id] = s.name;
+    return map;
+  }, [students]);
+
+  const userNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const u of users) map[u.walletAddress] = u.name;
+    return map;
+  }, [users]);
+
+  const shortenWallet = (addr?: string) => {
+    if (!addr || typeof addr !== 'string') return '';
+    const a = addr.toLowerCase();
+    return a.length > 12 ? `${a.slice(0, 6)}...${a.slice(-4)}` : a;
+  };
+
+  const rows = useMemo(() => history.map((h: any) => {
+    const pickupWallet = (h.pickupBy || '').toLowerCase();
+    return {
+      id: h.id,
+      studentId: h.studentId,
+      // prefer API-provided name; fallback to student map; finally show ID
+      studentName: h.studentName || studentNameMap[h.studentId] || h.studentId,
+      pickupWallet,
+      timestamp: h.time,
+      status: 'completed' as const,
+    };
+  }), [history, studentNameMap, userNameMap]);
+
+  const allStudents = useMemo(() => {
+    const names = Array.from(new Set(rows.map(h => h.studentName).filter(Boolean)));
+    return ["All students", ...names];
+  }, [rows]);
+
+  const filteredHistory = useMemo(() => {
+    return rows.filter(item => {
+      const matchesDate = !selectedDate || (item.timestamp || '').includes(selectedDate);
+      const matchesStudent = selectedStudent === 'All students' || item.studentName === selectedStudent;
+      return matchesDate && matchesStudent;
+    });
+  }, [rows, selectedDate, selectedStudent]);
 
   return (
     <TabContainer
@@ -41,11 +152,41 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
           <div className="text-sm text-slate-600">
             Total Records: {filteredHistory.length}
           </div>
-          {newPickups.length > 0 && (
-            <div className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full">
-              {newPickups.length} new pickup(s) today
-            </div>
-          )}
+          <button
+            onClick={async () => {
+              // simple refresh
+              try {
+                setLoading(true);
+                const res = await fetch('/api/pickup/history');
+                const data = await res.json();
+                if (res.ok && data.success) {
+                  const items = Array.isArray(data.history) ? data.history : [];
+                  setHistory(items.map((h: any) => {
+                    const isoTime = typeof h.time === 'string' && h.time
+                      ? h.time
+                      : h.time && typeof h.time?.toDate === 'function'
+                      ? h.time.toDate().toISOString()
+                      : (() => { const d = new Date(h.time); return isNaN(d.getTime()) ? '' : d.toISOString(); })();
+                    return {
+                      id: h.id,
+                      studentId: h.studentId,
+                      studentName: (h as any).studentName,
+                      pickupBy: h.pickupBy,
+                      staffId: h.staffId,
+                      time: isoTime,
+                      blockchainHash: h.blockchainHash,
+                      contractTxHash: h.contractTxHash,
+                    };
+                  }));
+                }
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Refresh
+          </button>
         </div>
 
         {/* Filters */}
@@ -95,7 +236,19 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
         </div>
 
         {/* History Table */}
-        {filteredHistory.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="text-slate-400 text-6xl mb-4">⏳</div>
+            <h3 className="text-xl font-medium text-slate-600 mb-2">Loading History...</h3>
+            <p className="text-slate-500">Please wait while we fetch pickup records.</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <div className="text-slate-400 text-6xl mb-4">⚠️</div>
+            <h3 className="text-xl font-medium text-slate-600 mb-2">Failed to load history</h3>
+            <p className="text-slate-500">{error}</p>
+          </div>
+        ) : filteredHistory.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-slate-400 text-6xl mb-4">📋</div>
             <h3 className="text-xl font-medium text-slate-600 mb-2">No Pickup Records</h3>
@@ -111,41 +264,26 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Student</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Student ID</th>
-                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Pickup Person</th>
+                  <th className="text-left py-4 px-4 font-semibold text-slate-700">Pickup Wallet</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Date & Time</th>
                   <th className="text-left py-4 px-4 font-semibold text-slate-700">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredHistory.map((record) => (
-                  <tr key={record.id} className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${newPickups.some(p => p.id === record.id) ? 'bg-green-50' : ''
-                    }`}>
+                  <tr key={record.id || `${record.studentId}-${record.timestamp}`}
+                      className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors`}>
                     <td className="py-4 px-4">
                       <div className="font-medium text-slate-800">{record.studentName}</div>
-                      {newPickups.some(p => p.id === record.id) && (
-                        <div className="text-xs text-green-600 font-medium">NEW</div>
-                      )}
                     </td>
                     <td className="py-4 px-4">
                       <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
-                        {record.studentId}
+                        {record.pickupWallet}
                       </code>
                     </td>
                     <td className="py-4 px-4">
-                      <div className="text-slate-600">
-                        {record.pickupPerson.startsWith('0x') ? (
-                          <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">
-                            {record.pickupPerson}
-                          </code>
-                        ) : (
-                          record.pickupPerson
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
                       <div className="text-slate-600 text-sm">
-                        {record.timestamp}
+                        {(() => { const d = new Date(record.timestamp); return isNaN(d.getTime()) ? record.timestamp : d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: 'numeric', minute: '2-digit', hour12: true }); })()}
                       </div>
                     </td>
                     <td className="py-4 px-4">
@@ -169,24 +307,23 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-green-700 font-medium">Total Pickups:</span>
-              <span className="ml-2 text-green-800">{pickupHistory.length}</span>
+              <span className="ml-2 text-green-800">{rows.length}</span>
             </div>
             <div>
               <span className="text-green-700 font-medium">Completed:</span>
               <span className="ml-2 text-green-800">
-                {pickupHistory.filter(h => h.status === 'completed').length}
+                {rows.filter(h => h.status === 'completed').length}
               </span>
             </div>
+            {/* Pending is always zero because we record only completed pickups */}
             <div>
               <span className="text-green-700 font-medium">Pending:</span>
-              <span className="ml-2 text-green-800">
-                {pickupHistory.filter(h => h.status === 'pending').length}
-              </span>
+              <span className="ml-2 text-green-800">0</span>
             </div>
             <div>
               <span className="text-green-700 font-medium">Today:</span>
               <span className="ml-2 text-green-800">
-                {pickupHistory.filter(h => h.timestamp.includes(new Date().toISOString().split('T')[0])).length}
+                {rows.filter(h => (h.timestamp || '').includes(new Date().toISOString().split('T')[0])).length}
               </span>
             </div>
           </div>

@@ -11,19 +11,31 @@ import {
   updateDoc,
   deleteDoc,
   startAt,
-  endAt
+  endAt,
+  runTransaction,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './config';
-import type {
-  Student,
-  Authorization,
-  PickupLog,
-  UserSession,
-  QRCodeData
+import type { 
+  Student, 
+  Authorization, 
+  PickupLog, 
+  UserSession, 
+  QRCodeData,
+  User,
+  PickupPerson,
+  PickupHistory,
+  AuthorizationRecord,
+  QRCodeContent
 } from '@/types/database';
 
 // Collection references
 export const studentsCollection = collection(db, 'students');
+export const usersCollection = collection(db, 'users');
+export const pickupHistoryCollection = collection(db, 'pickupHistory');
+export const authorizationRecordsCollection = collection(db, 'authorizationRecords');
+
+// Legacy collections for backward compatibility
 export const authorizationsCollection = collection(db, 'authorizations');
 export const pickupLogsCollection = collection(db, 'pickup-logs');
 export const userSessionsCollection = collection(db, 'user-sessions');
@@ -39,7 +51,7 @@ export const createStudent = async (student: Omit<Student, 'createdAt'>) => {
     const studentDoc = doc(studentsCollection, student.id);
     await setDoc(studentDoc, {
       ...student,
-      parentWallet: student.parentWallet.toLowerCase(),
+      parentId: student.parentId.toLowerCase(),
       createdAt: Timestamp.now(),
     });
     return true;
@@ -53,7 +65,7 @@ export const getStudentsByParent = async (parentWallet: string): Promise<Student
   try {
     const q = query(
       studentsCollection,
-      where('parentWallet', '==', parentWallet.toLowerCase())
+      where('parentId', '==', parentWallet.toLowerCase())
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => {
@@ -61,7 +73,8 @@ export const getStudentsByParent = async (parentWallet: string): Promise<Student
       return {
         id: doc.id,
         name: data.name,
-        parentWallet: data.parentWallet,
+        grade: data.grade,
+        parentId: data.parentId,
         createdAt: data.createdAt.toDate(),
       };
     });
@@ -81,7 +94,8 @@ export const getStudentById = async (studentId: string): Promise<Student | null>
       return {
         id: studentSnap.id,
         name: data.name,
-        parentWallet: data.parentWallet,
+        grade: data.grade,
+        parentId: data.parentId,
         createdAt: data.createdAt.toDate(),
       };
     }
@@ -102,7 +116,8 @@ export const getAllStudents = async (): Promise<Student[]> => {
       return {
         id: doc.id,
         name: data.name,
-        parentWallet: data.parentWallet,
+        grade: data.grade,
+        parentId: data.parentId,
         createdAt: data.createdAt.toDate(),
       };
     });
@@ -118,7 +133,7 @@ export const updateStudent = async (studentId: string, updates: Partial<Student>
     const studentDoc = doc(studentsCollection, studentId);
     await updateDoc(studentDoc, {
       ...updates,
-      parentWallet: updates.parentWallet?.toLowerCase(),
+      parentId: updates.parentId?.toLowerCase(),
     });
     return true;
   } catch (error) {
@@ -498,6 +513,365 @@ export const getPickupLogsByStaff = async (staffWallet: string): Promise<PickupL
     });
   } catch (error) {
     console.error('Error getting pickup logs by staff:', error);
+    return [];
+  }
+};
+
+// ===============================
+// NEW COLLECTION OPERATIONS
+// ===============================
+
+// User operations
+export const createUser = async (user: Omit<User, 'createdAt' | 'lastLoginAt'>): Promise<boolean> => {
+  try {
+    const normalizedAddress = user.walletAddress.toLowerCase();
+    const userDoc = doc(usersCollection, normalizedAddress);
+    await setDoc(userDoc, {
+      ...user,
+      id: normalizedAddress,
+      walletAddress: normalizedAddress,
+      createdAt: Timestamp.now(),
+      lastLoginAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return false;
+  }
+};
+
+export const getUserById = async (walletAddress: string): Promise<User | null> => {
+  try {
+    const normalizedAddress = walletAddress.toLowerCase();
+    const userDoc = doc(usersCollection, normalizedAddress);
+    const userSnap = await getDoc(userDoc);
+    
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+      return {
+        id: data.id,
+        walletAddress: data.walletAddress,
+        name: data.name,
+        contactNumber: data.contactNumber,
+        role: data.role,
+        createdAt: data.createdAt.toDate(),
+        lastLoginAt: data.lastLoginAt.toDate(),
+        pickup: data.pickup || {},
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user by ID:', error);
+    return null;
+  }
+};
+
+export const updateUserLastLogin = async (walletAddress: string): Promise<boolean> => {
+  try {
+    const normalizedAddress = walletAddress.toLowerCase();
+    const userDoc = doc(usersCollection, normalizedAddress);
+    await updateDoc(userDoc, {
+      lastLoginAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating user last login:', error);
+    return false;
+  }
+};
+
+export const addPickupPersonToParent = async (
+  parentWallet: string,
+  pickupWallet: string,
+  pickupPerson: PickupPerson
+): Promise<boolean> => {
+  try {
+    const normalizedParentAddress = parentWallet.toLowerCase();
+    const normalizedPickupAddress = pickupWallet.toLowerCase();
+    const userDoc = doc(usersCollection, normalizedParentAddress);
+    
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userDoc);
+      
+      if (!userSnap.exists()) {
+        throw new Error('Parent user not found');
+      }
+      
+      const userData = userSnap.data();
+      if (userData.role !== 'parent') {
+        throw new Error('User is not a parent');
+      }
+      
+      const currentPickup = userData.pickup || {};
+      currentPickup[normalizedPickupAddress] = {
+        ...pickupPerson,
+        walletAddress: normalizedPickupAddress,
+      };
+      
+      transaction.update(userDoc, { pickup: currentPickup });
+      return true;
+    });
+  } catch (error) {
+    console.error('Error adding pickup person to parent:', error);
+    return false;
+  }
+};
+
+export const removePickupPersonFromParent = async (
+  parentWallet: string,
+  pickupWallet: string
+): Promise<boolean> => {
+  try {
+    const normalizedParentAddress = parentWallet.toLowerCase();
+    const normalizedPickupAddress = pickupWallet.toLowerCase();
+    const userDoc = doc(usersCollection, normalizedParentAddress);
+    
+    return await runTransaction(db, async (transaction) => {
+      const userSnap = await transaction.get(userDoc);
+      
+      if (!userSnap.exists()) {
+        throw new Error('Parent user not found');
+      }
+      
+      const userData = userSnap.data();
+      const currentPickup = userData.pickup || {};
+      delete currentPickup[normalizedPickupAddress];
+      
+      transaction.update(userDoc, { pickup: currentPickup });
+      return true;
+    });
+  } catch (error) {
+    console.error('Error removing pickup person from parent:', error);
+    return false;
+  }
+};
+
+export const getAllUsers = async (): Promise<User[]> => {
+  try {
+    const q = query(usersCollection, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: data.id,
+        walletAddress: data.walletAddress,
+        name: data.name,
+        contactNumber: data.contactNumber,
+        role: data.role,
+        createdAt: data.createdAt.toDate(),
+        lastLoginAt: data.lastLoginAt.toDate(),
+        pickup: data.pickup || {},
+      };
+    });
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    return [];
+  }
+};
+
+export const getUsersByRole = async (role: string): Promise<User[]> => {
+  try {
+    const q = query(
+      usersCollection, 
+      where('role', '==', role),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: data.id,
+        walletAddress: data.walletAddress,
+        name: data.name,
+        contactNumber: data.contactNumber,
+        role: data.role,
+        createdAt: data.createdAt.toDate(),
+        lastLoginAt: data.lastLoginAt.toDate(),
+        pickup: data.pickup || {},
+      };
+    });
+  } catch (error) {
+    console.error('Error getting users by role:', error);
+    return [];
+  }
+};
+
+// Pickup History operations
+export const createPickupHistory = async (pickupHistory: Omit<PickupHistory, 'id' | 'time'>): Promise<string | null> => {
+  try {
+    const historyDoc = doc(pickupHistoryCollection);
+    await setDoc(historyDoc, {
+      ...pickupHistory,
+      id: historyDoc.id,
+      pickupBy: pickupHistory.pickupBy.toLowerCase(),
+      staffId: pickupHistory.staffId.toLowerCase(),
+      time: Timestamp.now(),
+    });
+    return historyDoc.id;
+  } catch (error) {
+    console.error('Error creating pickup history:', error);
+    return null;
+  }
+};
+
+export const getPickupHistoryByStudent = async (studentId: string): Promise<PickupHistory[]> => {
+  try {
+    const q = query(
+      pickupHistoryCollection,
+      where('studentId', '==', studentId),
+      orderBy('time', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        blockchainHash: data.blockchainHash,
+        contractTxHash: data.contractTxHash,
+        pickupBy: data.pickupBy,
+        staffId: data.staffId,
+        studentId: data.studentId,
+        time: data.time.toDate(),
+      };
+    });
+  } catch (error) {
+    console.error('Error getting pickup history by student:', error);
+    return [];
+  }
+};
+
+export const getAllPickupHistory = async (): Promise<PickupHistory[]> => {
+  try {
+    const q = query(pickupHistoryCollection, orderBy('time', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        blockchainHash: data.blockchainHash,
+        contractTxHash: data.contractTxHash,
+        pickupBy: data.pickupBy,
+        staffId: data.staffId,
+        studentId: data.studentId,
+        time: data.time.toDate(),
+      };
+    });
+  } catch (error) {
+    console.error('Error getting all pickup history:', error);
+    return [];
+  }
+};
+
+// Authorization Record operations
+export const createAuthorizationRecord = async (
+  authRecord: Omit<AuthorizationRecord, 'id' | 'generatedAt'>
+): Promise<string | null> => {
+  try {
+    const authDoc = doc(authorizationRecordsCollection);
+    await setDoc(authDoc, {
+      ...authRecord,
+      id: authDoc.id,
+      pickupWallet: authRecord.pickupWallet.toLowerCase(),
+      parentWallet: authRecord.parentWallet.toLowerCase(),
+      generatedAt: Timestamp.now(),
+      expiresAt: Timestamp.fromDate(authRecord.expiresAt),
+    });
+    return authDoc.id;
+  } catch (error) {
+    console.error('Error creating authorization record:', error);
+    return null;
+  }
+};
+
+export const getAuthorizationRecordById = async (recordId: string): Promise<AuthorizationRecord | null> => {
+  try {
+    const authDoc = doc(authorizationRecordsCollection, recordId);
+    const authSnap = await getDoc(authDoc);
+    
+    if (authSnap.exists()) {
+      const data = authSnap.data();
+      return {
+        id: authSnap.id,
+        qrCodeId: data.qrCodeId,
+        hash: data.hash,
+        studentId: data.studentId,
+        pickupWallet: data.pickupWallet,
+        parentWallet: data.parentWallet,
+        generatedAt: data.generatedAt.toDate(),
+        expiresAt: data.expiresAt.toDate(),
+        isUsed: data.isUsed,
+        isActive: data.isActive,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting authorization record by ID:', error);
+    return null;
+  }
+};
+
+export const verifyAuthorizationRecord = async (
+  recordId: string,
+  hash: string
+): Promise<{ valid: boolean; record: AuthorizationRecord | null }> => {
+  try {
+    const record = await getAuthorizationRecordById(recordId);
+    
+    if (!record) {
+      return { valid: false, record: null };
+    }
+    
+    const isValid = record.hash === hash && 
+                   record.isActive && 
+                   !record.isUsed && 
+                   new Date() < record.expiresAt;
+    
+    return { valid: isValid, record };
+  } catch (error) {
+    console.error('Error verifying authorization record:', error);
+    return { valid: false, record: null };
+  }
+};
+
+export const markAuthorizationRecordAsUsed = async (recordId: string): Promise<boolean> => {
+  try {
+    const authDoc = doc(authorizationRecordsCollection, recordId);
+    await updateDoc(authDoc, { isUsed: true });
+    return true;
+  } catch (error) {
+    console.error('Error marking authorization record as used:', error);
+    return false;
+  }
+};
+
+export const getActiveAuthorizationsByPickup = async (pickupWallet: string): Promise<AuthorizationRecord[]> => {
+  try {
+    const q = query(
+      authorizationRecordsCollection,
+      where('pickupWallet', '==', pickupWallet.toLowerCase()),
+      where('isActive', '==', true),
+      where('isUsed', '==', false)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        qrCodeId: data.qrCodeId,
+        hash: data.hash,
+        studentId: data.studentId,
+        pickupWallet: data.pickupWallet,
+        parentWallet: data.parentWallet,
+        generatedAt: data.generatedAt.toDate(),
+        expiresAt: data.expiresAt.toDate(),
+        isUsed: data.isUsed,
+        isActive: data.isActive,
+      };
+    });
+  } catch (error) {
+    console.error('Error getting active authorizations by pickup:', error);
     return [];
   }
 };

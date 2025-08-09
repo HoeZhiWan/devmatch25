@@ -1,7 +1,7 @@
 'use client';
 
 import { signInWithCustomToken, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from './config';
+import { auth } from './client-config';
 import { ethers } from 'ethers';
 
 export interface AuthUser {
@@ -255,6 +255,21 @@ This request will not trigger a blockchain transaction or cost any gas fees.`;
       return idTokenResult.claims;
     } catch (error) {
       console.error('Error getting user claims:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Gets the current user's ID token
+   */
+  static async getIdToken(): Promise<string | null> {
+    try {
+      const user = auth.currentUser;
+      if (!user) return null;
+
+      return await user.getIdToken();
+    } catch (error) {
+      console.error('Error getting ID token:', error);
       return null;
     }
   }

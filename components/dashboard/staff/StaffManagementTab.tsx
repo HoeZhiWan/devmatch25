@@ -1,20 +1,38 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Staff, Student, Parent } from '../../../types/dashboard';
+import { useFirebaseData } from '../../../hooks/useFirebaseData';
+import { useFirebaseAuth } from '../../../hooks/useFirebaseAuth';
 import TabContainer from '../TabContainer';
 
+interface Staff {
+  id: string;
+  name: string;
+  role: string;
+  walletAddress: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 const StaffManagementTab: React.FC = () => {
+  const { students, allUsers, refreshData } = useFirebaseData();
+  const { getIdToken } = useFirebaseAuth();
+  
   const [activeSubTab, setActiveSubTab] = useState<'users' | 'staff-list' | 'add-staff'>('users');
   
   // User management states
   const [formData, setFormData] = useState({
     studentName: '',
+    studentId: '',
+    grade: '',
     parentName: '',
     walletId: '',
     relationship: '',
     phone: '',
   });
+  const [addUserLoading, setAddUserLoading] = useState(false);
+  const [addUserError, setAddUserError] = useState<string | null>(null);
+  const [addUserSuccess, setAddUserSuccess] = useState<string | null>(null);
 
   // Staff management states
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -30,20 +48,15 @@ const StaffManagementTab: React.FC = () => {
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
-  // Mock data
-  const [students, setStudents] = useState<Student[]>([
-    { id: 'STU001', name: 'Alice Johnson', parentWallet: '0x1234...5678' },
-    { id: 'STU002', name: 'Bob Smith', parentWallet: '0x8765...4321' },
-    { id: '123', name: 'Jenny', parentWallet: '0x9999...1111' },
-    { id: '456', name: 'Tom', parentWallet: '0x8888...2222' },
-  ]);
+  // Filter users to get parents
+  const parents = allUsers.filter(user => user.role === 'parent');
 
-  const [parents, setParents] = useState<Parent[]>([
-    { name: 'John Johnson', walletAddress: '0x1234...5678', relationship: 'Father', phoneNumber: '+1234567890' },
-    { name: 'Sarah Smith', walletAddress: '0x8765...4321', relationship: 'Mother', phoneNumber: '+0987654321' },
-    { name: 'Mary Chen', walletAddress: '0x9999...1111', relationship: 'Mother', phoneNumber: '+1111222233' },
-    { name: 'David Wilson', walletAddress: '0x8888...2222', relationship: 'Father', phoneNumber: '+4444555566' },
-  ]);
+  // Generate unique student ID
+  const generateStudentId = () => {
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.random().toString(36).substr(2, 3).toUpperCase();
+    return `CH${timestamp}${random}`;
+  };
 
   // Fetch staff list from API
   useEffect(() => {
@@ -75,33 +88,94 @@ const StaffManagementTab: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleAddStudent = (e: React.FormEvent) => {
+  const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
     
-    const newStudentId = 'STU' + Math.random().toString(36).substr(2, 6).toUpperCase();
-    const newStudent: Student = {
-      id: newStudentId,
-      name: formData.studentName,
-      parentWallet: formData.walletId
-    };
-    setStudents(prev => [...prev, newStudent]);
+    setAddUserLoading(true);
+    setAddUserError(null);
+    setAddUserSuccess(null);
     
-    const newParent: Parent = {
-      name: formData.parentName,
-      walletAddress: formData.walletId,
-      relationship: formData.relationship,
-      phoneNumber: formData.phone
-    };
-    setParents(prev => [...prev, newParent]);
-    
-    setFormData({
-      studentName: '',
-      parentName: '',
-      walletId: '',
-      relationship: '',
-      phone: '',
-    });
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) {
+        throw new Error('Authentication required');
+      }
+
+      // First, create the parent user if they don't exist
+      const parentResponse = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          walletAddress: formData.walletId,
+          name: formData.parentName,
+          contactNumber: formData.phone,
+          role: 'parent',
+          idToken,
+        }),
+      });
+
+      let parentCreated = false;
+      if (parentResponse.ok) {
+        parentCreated = true;
+      } else if (parentResponse.status === 409) {
+        // User already exists, that's fine
+        parentCreated = true;
+      } else {
+        const errorData = await parentResponse.json();
+        throw new Error(errorData.error || 'Failed to create parent');
+      }
+
+      if (!parentCreated) {
+        throw new Error('Failed to create parent user');
+      }
+
+      // Generate student ID if not provided
+      const studentId = formData.studentId || generateStudentId();
+
+      // Create the student
+      const studentResponse = await fetch('/api/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: studentId,
+          name: formData.studentName,
+          grade: formData.grade,
+          parentId: formData.walletId,
+          idToken,
+        }),
+      });
+
+      if (!studentResponse.ok) {
+        const errorData = await studentResponse.json();
+        throw new Error(errorData.error || 'Failed to create student');
+      }
+
+      setAddUserSuccess(`Successfully added student ${formData.studentName} and parent ${formData.parentName}!`);
+      
+      // Reset form
+      setFormData({
+        studentName: '',
+        studentId: '',
+        grade: '',
+        parentName: '',
+        walletId: '',
+        relationship: '',
+        phone: '',
+      });
+
+      // Refresh data
+      await refreshData();
+      
+    } catch (error: any) {
+      setAddUserError(error.message || 'Failed to add student and parent');
+    } finally {
+      setAddUserLoading(false);
+    }
   };
 
   const handleStaffFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,6 +217,24 @@ const StaffManagementTab: React.FC = () => {
             <div className="bg-slate-50 rounded-xl p-6">
               <h4 className="text-lg font-bold text-slate-800 mb-4">Add New Student & Parent</h4>
               
+              {addUserError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-center">
+                    <span className="text-red-500 text-xl mr-3">⚠️</span>
+                    <p className="text-red-600 text-sm">{addUserError}</p>
+                  </div>
+                </div>
+              )}
+
+              {addUserSuccess && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-center">
+                    <span className="text-green-500 text-xl mr-3">✅</span>
+                    <p className="text-green-600 text-sm">{addUserSuccess}</p>
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleAddStudent} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -158,6 +250,42 @@ const StaffManagementTab: React.FC = () => {
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Student ID <span className="text-slate-500">(Optional - auto-generated if empty)</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="studentId"
+                      value={formData.studentId}
+                      onChange={handleFormChange}
+                      placeholder="CH001 (leave empty to auto-generate)"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Grade <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="grade"
+                      value={formData.grade}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select grade</option>
+                      <option value="Kindergarten">Kindergarten</option>
+                      <option value="Grade 1">Grade 1</option>
+                      <option value="Grade 2">Grade 2</option>
+                      <option value="Grade 3">Grade 3</option>
+                      <option value="Grade 4">Grade 4</option>
+                      <option value="Grade 5">Grade 5</option>
+                      <option value="Grade 6">Grade 6</option>
+                    </select>
                   </div>
 
                   <div>
@@ -228,14 +356,21 @@ const StaffManagementTab: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={!isFormValid}
+                  disabled={!isFormValid || addUserLoading}
                   className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                    !isFormValid
+                    !isFormValid || addUserLoading
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       : 'bg-[#003751] text-white shadow-lg hover:shadow-xl'
                   }`}
                 >
-                  Add Student & Parent
+                  {addUserLoading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Adding...
+                    </div>
+                  ) : (
+                    'Add Student & Parent'
+                  )}
                 </button>
               </form>
             </div>
@@ -246,12 +381,20 @@ const StaffManagementTab: React.FC = () => {
               <div className="bg-slate-50 rounded-xl p-6">
                 <h4 className="text-lg font-bold text-slate-800 mb-4">Students ({students.length})</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {students.map((student) => (
-                    <div key={student.id} className="bg-white rounded-lg p-3 border">
-                      <div className="font-medium text-slate-800">{student.name}</div>
-                      <div className="text-sm text-slate-600">ID: {student.id}</div>
+                  {students.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-slate-400 text-4xl mb-2">👨‍🎓</div>
+                      <p className="text-slate-500">No students added yet</p>
                     </div>
-                  ))}
+                  ) : (
+                    students.map((student) => (
+                      <div key={student.id} className="bg-white rounded-lg p-3 border">
+                        <div className="font-medium text-slate-800">{student.name}</div>
+                        <div className="text-sm text-slate-600">ID: {student.id} • Grade: {student.grade}</div>
+                        <div className="text-xs text-slate-500">Parent: {student.parentId ? `${student.parentId.slice(0, 8)}...${student.parentId.slice(-4)}` : 'Unknown'}</div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -259,12 +402,24 @@ const StaffManagementTab: React.FC = () => {
               <div className="bg-slate-50 rounded-xl p-6">
                 <h4 className="text-lg font-bold text-slate-800 mb-4">Parents ({parents.length})</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {parents.map((parent, index) => (
-                    <div key={index} className="bg-white rounded-lg p-3 border">
-                      <div className="font-medium text-slate-800">{parent.name}</div>
-                      <div className="text-sm text-slate-600">{parent.relationship} • {parent.phoneNumber}</div>
+                  {parents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-slate-400 text-4xl mb-2">👨‍👩‍👧‍👦</div>
+                      <p className="text-slate-500">No parents added yet</p>
                     </div>
-                  ))}
+                  ) : (
+                    parents.map((parent, index) => (
+                      <div key={parent.id || parent.walletAddress || `parent-${index}`} className="bg-white rounded-lg p-3 border">
+                        <div className="font-medium text-slate-800">{parent.name}</div>
+                        <div className="text-sm text-slate-600">
+                          Role: Parent • Contact: {parent.contactNumber || 'Not provided'}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Wallet: {(() => { const wa = parent.walletAddress || parent.id || ''; return wa ? `${wa.slice(0, 8)}...${wa.slice(-4)}` : 'Unknown'; })()}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

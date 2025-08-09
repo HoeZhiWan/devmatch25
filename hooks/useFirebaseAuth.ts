@@ -17,6 +17,7 @@ interface UseFirebaseAuthReturn {
   login: (fallbackRole: 'parent' | 'pickup' | 'staff', walletOverride?: { address: string; signer: any }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   clearError: () => void;
+  getIdToken: () => Promise<string | null>;
 }
 
 export function useFirebaseAuth(): UseFirebaseAuthReturn {
@@ -224,6 +225,10 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     }
   }, []);
 
+  const getIdToken = useCallback(async (): Promise<string | null> => {
+    return await FirebaseAuthService.getIdToken();
+  }, []);
+
   return {
     user,
     isLoading,
@@ -231,6 +236,7 @@ export function useFirebaseAuth(): UseFirebaseAuthReturn {
     isAuthenticated: !!user,
     login,
     logout,
-    clearError
+    clearError,
+    getIdToken
   };
 }
