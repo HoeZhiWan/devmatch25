@@ -6,6 +6,7 @@ import BaseDashboard from '../BaseDashboard';
 import StaffPickupValidationTab from './StaffPickupValidationTab';
 import StaffPickupLogsTab from './StaffPickupLogsTab';
 import StaffManagementTab from './StaffManagementTab';
+import ReminderTab from './ReminderTab';
 
 const STAFF_TABS: DashboardTab[] = [
   { 
@@ -26,6 +27,12 @@ const STAFF_TABS: DashboardTab[] = [
     icon: '👥', 
     gradientColors: 'from-purple-500 to-purple-600' 
   },
+    { 
+    key: 'reminder', 
+    label: 'Reminder', 
+    icon: '🔔', 
+    gradientColors: 'from-orange-500 to-orange-600' 
+  },
 ];
 
 const StaffDashboardSection: React.FC = () => {
@@ -44,6 +51,8 @@ const StaffDashboardSection: React.FC = () => {
         return <StaffPickupLogsTab newPickups={newPickups} />;
       case 'management':
         return <StaffManagementTab />;
+      case 'reminder':
+        return <ReminderTab/>;
       default:
         return <StaffPickupValidationTab onPickupComplete={handlePickupComplete} />;
     }
