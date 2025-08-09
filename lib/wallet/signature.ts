@@ -18,7 +18,7 @@ import { createWalletError } from './connection';
  */
 export const createAuthorizationMessage = (params: AuthorizationMessage): string => {
   const message = [
-    '🔐 DevMatch25 - Child Pickup Authorization',
+    '🔐 KidGuard - Child Pickup Authorization',
     '',
     `I, the parent with wallet ${params.parentWallet},`,
     `authorize wallet ${params.pickupWallet}`,
@@ -32,7 +32,7 @@ export const createAuthorizationMessage = (params: AuthorizationMessage): string
     '⚠️ This authorization is legally binding.',
     '⚠️ Only sign if you trust the pickup person.',
     '',
-    '🌐 DevMatch25 Secure Pickup System'
+    '🌐 KidGuard Secure Pickup System'
   ].join('\n');
 
   return message;
@@ -173,7 +173,7 @@ export const createAndSignAuthorization = async (
  */
 export const validateAuthorizationMessage = (message: string): boolean => {
   const requiredPhrases = [
-    'DevMatch25 - Child Pickup Authorization',
+    'KidGuard - Child Pickup Authorization',
     'authorize wallet',
     'to pick up my child',
     'Valid from:',

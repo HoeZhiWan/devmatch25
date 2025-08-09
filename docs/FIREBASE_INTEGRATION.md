@@ -1,6 +1,6 @@
 # Firebase Integration Guide
 
-This guide explains how to use the Firebase integration system for wallet authentication and data storage in the DevMatch25 Web3 project.
+This guide explains how to use the Firebase integration system for wallet authentication and data storage in the KidGuard Web3 project.
 
 ## Overview
 

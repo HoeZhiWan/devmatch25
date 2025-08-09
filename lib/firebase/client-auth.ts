@@ -26,7 +26,7 @@ export class FirebaseAuthService {
    */
   static createSignatureMessage(wallet: string, role: string, nonce: string): string {
     const timestamp = Math.floor(Date.now() / 1000);
-    return `Welcome to DevMatch25!
+    return `Welcome to KidGuard!
 
 Sign this message to authenticate your ${role} role.
 

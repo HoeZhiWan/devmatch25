@@ -334,7 +334,7 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
               <span className="text-white font-bold text-2xl">D</span>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              DevMatch25
+              KidGuard
             </h1>
             <p className="text-gray-600">
               Secure Wallet-Based Authentication

@@ -3,9 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useFirebaseAuth } from "../../hooks/useFirebaseAuth";
-import ParentDashboard from "../../components/ParentDashboard";
-import StaffDashboard from "../../components/StaffDashboard";
-import PickupDashboard from "../../components/PickupDashboard";
+import DashboardNavbar from '../../components/dashboard/DashboardNavbar';
+import ParentDashboardSection from '../../components/dashboard/parent/ParentDashboardSection';
+import StaffDashboardSection from '../../components/dashboard/staff/StaffDashboardSection';
+import PickupDashboardSection from '../../components/dashboard/pickup/PickupDashboardSection';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -44,102 +45,31 @@ export default function Dashboard() {
     return null; // Will be redirected by useEffect
   }
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'parent':
-        return '👨‍👩‍👧‍👦';
-      case 'staff':
-        return '👩‍🏫';
-      case 'pickup':
-        return '🚗';
-      default:
-        return '👤';
-    }
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'parent':
-        return 'from-blue-500 to-blue-600';
-      case 'staff':
-        return 'from-green-500 to-green-600';
-      case 'pickup':
-        return 'from-purple-500 to-purple-600';
-      default:
-        return 'from-slate-500 to-slate-600';
-    }
-  };
+  // ...existing code...
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
-      {/* Header */}
-      <header className="border-b border-slate-200/50 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">D</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent">
-                  DevMatch25
-                </h1>
-                <p className="text-sm text-slate-600">Secure Child Pickup System</p>
-              </div>
-            </div>
-            
-            {/* User Profile */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 bg-gradient-to-r ${getRoleColor(user.role)} rounded-xl flex items-center justify-center`}>
-                  <span className="text-white text-lg">
-                    {getRoleIcon(user.role)}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-slate-700">
-                    {user.wallet.slice(0, 6)}...{user.wallet.slice(-4)}
-                  </div>
-                  <div className="text-xs text-slate-500 capitalize">
-                    {user.role}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Logging out...' : 'Logout'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardNavbar
+        wallet={user.wallet}
+        role={user.role}
+        isLoading={isLoading}
+        onLogout={handleLogout}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Dashboard Title */}
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-2">
-            <div className={`w-12 h-12 bg-gradient-to-r ${getRoleColor(user.role)} rounded-xl flex items-center justify-center`}>
-              <span className="text-white text-xl">
-                {getRoleIcon(user.role)}
-              </span>
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900">
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)} Dashboard
-              </h2>
-            </div>
+            {/* Role icon and dashboard title */}
+            {/* You can further abstract this if needed */}
+            <span className="text-3xl font-bold text-slate-900">
+              {user.role.charAt(0).toUpperCase() + user.role.slice(1)} Dashboard
+            </span>
           </div>
         </div>
-
-        {/* Role-based Dashboard Content */}
         <div className="space-y-8">
-          {user.role === 'parent' && <ParentDashboard />}
-          {user.role === 'staff' && <StaffDashboard />}
-          {user.role === 'pickup' && <PickupDashboard />}
-          
+          {user.role === 'parent' && <ParentDashboardSection />}
+          {user.role === 'staff' && <StaffDashboardSection />}
+          {user.role === 'pickup' && <PickupDashboardSection />}
           {/* Fallback for unknown roles */}
           {!['parent', 'staff', 'pickup'].includes(user.role) && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-8 text-center">
@@ -162,12 +92,11 @@ export default function Dashboard() {
           )}
         </div>
       </main>
-
       {/* Footer */}
       <footer className="border-t border-slate-200/50 bg-white/80 backdrop-blur-sm mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-slate-600">
-            <p>&copy; 2025 DevMatch25. Secure Child Pickup System powered by blockchain technology.</p>
+            <p>&copy; 2025 KidGuard. Secure Child Pickup System powered by blockchain technology.</p>
           </div>
         </div>
       </footer>
