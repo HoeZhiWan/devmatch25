@@ -232,10 +232,10 @@ const StaffManagementTab: React.FC = () => {
                   className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
                     !isFormValid
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl'
+                      : 'bg-[#003751] text-white shadow-lg hover:shadow-xl'
                   }`}
                 >
-                  ➕ Add Student & Parent
+                  Add Student & Parent
                 </button>
               </form>
             </div>
@@ -448,17 +448,16 @@ const StaffManagementTab: React.FC = () => {
     <TabContainer
       title="Management Panel"
       description="Manage users, students, parents, and staff members"
-      icon="👥"
-      gradientColors="from-purple-500 to-purple-600"
     >
       <div className="space-y-6">
         {/* Sub-navigation */}
-        <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
+        <div className="flex space-x-1 rounded-xl p-1"
+        style={{ backgroundColor: 'var(--light-blue)' }}>
           <button
             onClick={() => setActiveSubTab('users')}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
               activeSubTab === 'users' 
-                ? 'bg-white text-purple-600 shadow-sm' 
+                ? 'bg-white text-blue-600 shadow-sm' 
                 : 'text-slate-600 hover:text-slate-800'
             }`}
           >
@@ -468,7 +467,7 @@ const StaffManagementTab: React.FC = () => {
             onClick={() => setActiveSubTab('staff-list')}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
               activeSubTab === 'staff-list' 
-                ? 'bg-white text-purple-600 shadow-sm' 
+                ? 'bg-white text-blue-600 shadow-sm' 
                 : 'text-slate-600 hover:text-slate-800'
             }`}
           >
@@ -478,7 +477,7 @@ const StaffManagementTab: React.FC = () => {
             onClick={() => setActiveSubTab('add-staff')}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
               activeSubTab === 'add-staff' 
-                ? 'bg-white text-purple-600 shadow-sm' 
+                ? 'bg-white text-blue-600 shadow-sm' 
                 : 'text-slate-600 hover:text-slate-800'
             }`}
           >

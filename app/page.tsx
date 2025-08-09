@@ -29,25 +29,25 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       {/* Header */}
-      <header className="border-b border-slate-200/50 bg-white/80 backdrop-blur-sm">
+      <header className="backdrop-blur-sm shadow-md" style={{ backgroundColor: 'var(--background)' }} >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div className="w-20 h-20 bg-gradient-to-r rounded-xl flex items-center justify-center">
-                <Image
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center">
+                <img
                   src="/logo.jpg"
                   alt="KidGuard logo"
-                  width={200}
-                  height={200}                
+                  className="object-contain"               
                 />              
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent">
-                  KidGuard - KidGuard
+                <h1 className="text-2xl font-bold bg-clip-text text-transparent"
+                  style={{ color: 'var(--color-dark)' }}>
+                  KidGuard
                 </h1>
-                <p className="text-sm text-slate-600">Secure Child Pickup System</p>
+                <p className="text-sm text-slate-600" style={{color: 'var(--color-grey)'}}>Secure Child Pickup System</p>
               </div>
             </div>
             
@@ -56,7 +56,7 @@ export default function Home() {
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-semibold">
                         {user.role[0].toUpperCase()}
                       </span>
@@ -81,7 +81,8 @@ export default function Home() {
               ) : (
                 <button
                   onClick={handleLoginClick}
-                  className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  className="px-6 py-2 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  style={{ backgroundColor: 'var(--color-dark)' }}
                 >
                   Login
                 </button>
@@ -96,7 +97,8 @@ export default function Home() {
         <div className="text-center space-y-12">
           <div className="space-y-6">
             <div className="space-y-4">
-              <h2 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent">
+              <h2 className="text-5xl sm:text-6xl font-bold bg-clip-text text-transparent"
+              style={{ color: 'var(--color-dark)' }}>
                 Secure Child Pickup
               </h2>
               <p className="text-xl text-slate-600 max-w-3xl mx-auto">
@@ -109,9 +111,8 @@ export default function Home() {
               <Image
                 src="/logo.jpg"
                 alt="KidGuard Logo"
-                width={200}
-                height={200}
-                className="rounded-2xl shadow-xl"
+                width={250}
+                height={250}
                 priority
               />
             </div>
@@ -119,9 +120,9 @@ export default function Home() {
 
           {/* Features */}
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/50 rounded-2xl p-6 text-center space-y-4">
-              <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mx-auto">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white/40 backdrop-blur-sm border border-yellow-200/50 rounded-2xl p-6 text-center space-y-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
@@ -129,9 +130,9 @@ export default function Home() {
               <p className="text-slate-600">Wallet-based authentication ensures only authorized users can access child pickup features.</p>
             </div>
 
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/50 rounded-2xl p-6 text-center space-y-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white/40 backdrop-blur-sm border border-yellow-200/50 rounded-2xl p-6 text-center space-y-4">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
               </div>
@@ -139,9 +140,9 @@ export default function Home() {
               <p className="text-slate-600">Different interfaces for parents, staff, and authorized pickup persons with appropriate permissions.</p>
             </div>
 
-            <div className="bg-white/70 backdrop-blur-sm border border-slate-200/50 rounded-2xl p-6 text-center space-y-4">
-              <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mx-auto">
-                <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white/40 backdrop-blur-sm border border-yellow-200/50 rounded-2xl p-6 text-center space-y-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
@@ -152,7 +153,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="border-t border-slate-200/50 bg-white/80 backdrop-blur-sm mt-20">
+      <footer className="backdrop-blur-sm mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-slate-600">
             <p>&copy; 2025 KidGuard. Secure Child Pickup System powered by blockchain technology.</p>

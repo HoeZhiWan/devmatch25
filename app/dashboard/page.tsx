@@ -48,7 +48,7 @@ export default function Dashboard() {
   // ...existing code...
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
+    <div className="min-h-screen" style={{backgroundColor: 'var(--background)'}}>
       <DashboardNavbar
         wallet={user.wallet}
         role={user.role}
@@ -93,7 +93,7 @@ export default function Dashboard() {
         </div>
       </main>
       {/* Footer */}
-      <footer className="border-t border-slate-200/50 bg-white/80 backdrop-blur-sm mt-20">
+      <footer className="backdrop-blur-sm mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-slate-600">
             <p>&copy; 2025 KidGuard. Secure Child Pickup System powered by blockchain technology.</p>

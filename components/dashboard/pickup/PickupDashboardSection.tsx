@@ -12,14 +12,10 @@ const PICKUP_TABS: DashboardTab[] = [
   { 
     key: 'pickup', 
     label: 'Generate Pickup QR', 
-    icon: '👶', 
-    gradientColors: 'from-indigo-500 to-indigo-600' 
   },
   { 
     key: 'history', 
     label: 'Pickup History', 
-    icon: '📋', 
-    gradientColors: 'from-green-500 to-green-600' 
   },
 ];
 

@@ -91,11 +91,9 @@ const ParentStudentsTab: React.FC = () => {
     <TabContainer
       title="Pickup My Child"
       description="Generate a QR code for child pickup authorization"
-      icon="👶"
-      gradientColors="from-indigo-500 to-indigo-600"
     >
       <div className="space-y-6">
-        <div className="bg-slate-50 rounded-xl p-6">
+        <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
             Select Child
           </label>
@@ -114,7 +112,8 @@ const ParentStudentsTab: React.FC = () => {
         </div>
 
         <button
-          className="w-full py-4 px-6 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl hover:from-indigo-600 hover:to-indigo-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+          className="w-full py-4 px-6 text-white rounded-xl disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+          style={{ backgroundColor: 'var(--color-dark)' }}
           onClick={handlePickupMyChild}
           disabled={loading || !selectedChild}
         >
@@ -125,7 +124,6 @@ const ParentStudentsTab: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center justify-center space-x-2">
-              <span>🔐</span>
               <span>Generate Pickup QR</span>
             </div>
           )}
@@ -145,13 +143,13 @@ const ParentStudentsTab: React.FC = () => {
         )}
 
         {qrValue && (
-          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-200 p-8">
+          <div className="rounded-2xl border border-blue-200 p-8" style={{ backgroundColor: 'var(--light-blue)' }}>
             <div className="text-center">
-              <h4 className="text-xl font-bold text-indigo-700 mb-4">Your Pickup QR Code</h4>
+              <h4 className="text-xl font-bold mb-4" style={{ color: 'var(--color-dark)' }}>Your Pickup QR Code</h4>
               <div className="bg-white rounded-xl p-6 inline-block shadow-lg">
                 <QRCodeGenerator value={qrValue} />
               </div>
-              <p className="mt-4 text-sm text-indigo-600">
+              <p className="mt-4 text-sm" style={{ color: 'var(--color-dark)' }}>
                 Show this QR code to staff for pickup authorization
               </p>
             </div>

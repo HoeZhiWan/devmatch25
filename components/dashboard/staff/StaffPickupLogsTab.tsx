@@ -35,8 +35,6 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
     <TabContainer
       title="Pickup History"
       description="View and filter student pickup records"
-      icon="📋"
-      gradientColors="from-green-500 to-green-600"
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -87,7 +85,9 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
                 setSelectedDate('');
                 setSelectedStudent('All students');
               }}
-              className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors duration-200"
+              className="w-full px-4 py-2 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors duration-200"
+              style={{ backgroundColor: 'var(--light-blue)' }}
+
             >
               Clear Filters
             </button>
@@ -100,8 +100,8 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
             <div className="text-slate-400 text-6xl mb-4">📋</div>
             <h3 className="text-xl font-medium text-slate-600 mb-2">No Pickup Records</h3>
             <p className="text-slate-500">
-              {selectedDate || selectedStudent !== 'All students' 
-                ? 'No records match your current filters.' 
+              {selectedDate || selectedStudent !== 'All students'
+                ? 'No records match your current filters.'
                 : 'No pickup records available yet.'}
             </p>
           </div>
@@ -119,9 +119,8 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
               </thead>
               <tbody>
                 {filteredHistory.map((record) => (
-                  <tr key={record.id} className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${
-                    newPickups.some(p => p.id === record.id) ? 'bg-green-50' : ''
-                  }`}>
+                  <tr key={record.id} className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${newPickups.some(p => p.id === record.id) ? 'bg-green-50' : ''
+                    }`}>
                     <td className="py-4 px-4">
                       <div className="font-medium text-slate-800">{record.studentName}</div>
                       {newPickups.some(p => p.id === record.id) && (
@@ -150,12 +149,11 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'completed' 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${record.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {record.status === 'completed' ? '✅ Completed' : '⏳ Pending'}
+                        }`}>
+                        {record.status === 'completed' ? 'Completed' : 'Pending'}
                       </span>
                     </td>
                   </tr>
@@ -166,8 +164,8 @@ const StaffPickupLogsTab: React.FC<StaffPickupLogsTabProps> = ({ newPickups = []
         )}
 
         {/* Summary */}
-        <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-          <h3 className="font-medium text-green-800 mb-2">📊 Pickup Overview</h3>
+        <div className="p-4 border border-green-200 rounded-xl" style={{ backgroundColor: 'var(--light-green)' }}>
+          <h3 className="font-medium text-green-800 mb-2">Pickup Overview</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-green-700 font-medium">Total Pickups:</span>

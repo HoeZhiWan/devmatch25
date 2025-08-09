@@ -29,7 +29,7 @@ const BaseDashboard: React.FC<BaseDashboardProps> = ({
       )}
 
       {/* Navigation Tabs */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
+      <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
         <div className="flex space-x-1">
           {tabs.map((tab) => (
             <button
@@ -37,14 +37,13 @@ const BaseDashboard: React.FC<BaseDashboardProps> = ({
               onClick={() => onTabChange(tab.key)}
               className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 ${
                 activeTab === tab.key 
-                  ? `bg-gradient-to-r ${tab.gradientColors} text-white shadow-lg` 
+                  ? `bg-[#003751] text-white shadow-lg` 
                   : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
               }`}
               aria-selected={activeTab === tab.key}
               aria-label={tab.label}
             >
               <div className="flex items-center justify-center space-x-2">
-                <span>{tab.icon}</span>
                 <span>{tab.label}</span>
               </div>
             </button>

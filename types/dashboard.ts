@@ -52,8 +52,6 @@ export type DashboardRole = 'parent' | 'pickup' | 'staff';
 export interface DashboardTab {
   key: string;
   label: string;
-  icon: string;
-  gradientColors: string;
 }
 
 export interface QRData {

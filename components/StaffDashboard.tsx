@@ -264,7 +264,7 @@ const StaffDashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Navigation Tabs */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
+      <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-slate-200/50 p-2">
         <div className="flex space-x-1">
           <button
             onClick={() => setActiveTab('pickup')}

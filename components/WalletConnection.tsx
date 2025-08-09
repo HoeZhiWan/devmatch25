@@ -135,11 +135,9 @@ export const WalletConnection: React.FC<WalletConnectionProps> = ({
       <button
         onClick={handleButtonClick}
         disabled={isButtonDisabled}
-        className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center space-x-2"
+        className="w-full py-2 px-4 text-white font-semibold rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center space-x-2"
+        style={{backgroundColor: 'var(--color-dark)'}}
       >
-        <span>
-          {!wallet.isMetaMaskInstalled ? '🦊' : wallet.isConnected ? '🔌' : '🔐'}
-        </span>
         <span>{getButtonText()}</span>
       </button>
     </div>

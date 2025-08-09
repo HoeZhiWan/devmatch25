@@ -11,20 +11,14 @@ const STAFF_TABS: DashboardTab[] = [
   { 
     key: 'pickup', 
     label: 'Validate Pickup', 
-    icon: '🚸', 
-    gradientColors: 'from-blue-500 to-blue-600' 
   },
   { 
     key: 'history', 
     label: 'Pickup History', 
-    icon: '📋', 
-    gradientColors: 'from-green-500 to-green-600' 
   },
   { 
     key: 'management', 
     label: 'Management', 
-    icon: '👥', 
-    gradientColors: 'from-purple-500 to-purple-600' 
   },
 ];
 

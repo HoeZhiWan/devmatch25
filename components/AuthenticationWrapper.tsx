@@ -325,13 +325,17 @@ export const AuthenticationWrapper: React.FC<AuthenticationWrapperProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4"
+    style={{ backgroundColor: 'var(--background)' }}
+    >
       <div className="w-full max-w-md mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="bg-white/50 rounded-lg shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-2xl">D</span>
+            <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+              <img
+                src="/logo.jpg"
+              />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               KidGuard

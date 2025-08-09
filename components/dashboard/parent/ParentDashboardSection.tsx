@@ -12,14 +12,10 @@ const PARENT_TABS: DashboardTab[] = [
   { 
     key: 'pickup', 
     label: 'Pickup My Child', 
-    icon: '👶', 
-    gradientColors: 'from-indigo-500 to-indigo-600' 
   },
   { 
     key: 'authorize', 
     label: 'Authorize Pickup Person', 
-    icon: '🔑', 
-    gradientColors: 'from-green-500 to-green-600' 
   },
 ];
 

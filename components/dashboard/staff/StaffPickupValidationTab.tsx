@@ -80,11 +80,9 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
     <TabContainer
       title="Validate Student Pickup"
       description="Scan QR codes and validate pickup authorizations"
-      icon="🚸"
-      gradientColors="from-blue-500 to-blue-600"
     >
       <div className="space-y-6">
-        <div className="bg-slate-50 rounded-xl p-6">
+        <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
             Student ID
           </label>
@@ -100,13 +98,13 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
             </div>
           )}
           {studentId && availableIds.includes(studentId.trim()) && (
-            <div className="mt-2 text-sm text-green-600">
+            <div className="mt-2 text-sm text-green-700">
               ✅ Student ID found: {students.find(s => s.id === studentId)?.name || 'Student'}
             </div>
           )}
         </div>
 
-        <div className="bg-slate-50 rounded-xl p-6">
+        <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
             Scan Parent/Pickup Person QR Code
           </label>
@@ -134,7 +132,8 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
         )}
 
         <button
-          className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+          className="w-full py-4 px-6 text-white rounded-xl disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+          style={{ backgroundColor: 'var(--color-dark)' }}
           onClick={handleValidatePickup}
           disabled={loading || !studentId || !scannedQR}
         >
@@ -145,7 +144,6 @@ const StaffPickupValidationTab: React.FC<StaffPickupValidationTabProps> = ({
             </div>
           ) : (
             <div className="flex items-center justify-center space-x-2">
-              <span>🔍</span>
               <span>Validate Pickup</span>
             </div>
           )}

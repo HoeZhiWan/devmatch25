@@ -123,12 +123,10 @@ const ParentAuthorizationsTab: React.FC = () => {
       <TabContainer
         title="Authorize Pickup Person"
         description="Grant pickup authorization to trusted individuals"
-        icon="🔑"
-        gradientColors="from-green-500 to-green-600"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-slate-50 rounded-xl p-6">
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 Pickup Person Name
               </label>
@@ -140,7 +138,7 @@ const ParentAuthorizationsTab: React.FC = () => {
               />
             </div>
             
-            <div className="bg-slate-50 rounded-xl p-6">
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 MetaMask Address/ID
               </label>
@@ -152,7 +150,7 @@ const ParentAuthorizationsTab: React.FC = () => {
               />
             </div>
             
-            <div className="bg-slate-50 rounded-xl p-6">
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 Relationship to Child
               </label>
@@ -170,7 +168,7 @@ const ParentAuthorizationsTab: React.FC = () => {
               </select>
             </div>
             
-            <div className="bg-slate-50 rounded-xl p-6">
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 Phone Number
               </label>
@@ -182,7 +180,7 @@ const ParentAuthorizationsTab: React.FC = () => {
               />
             </div>
             
-            <div className="bg-slate-50 rounded-xl p-6">
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 Start Date
               </label>
@@ -194,7 +192,7 @@ const ParentAuthorizationsTab: React.FC = () => {
               />
             </div>
             
-            <div className="bg-slate-50 rounded-xl p-6">
+            <div className="rounded-xl p-6" style={{ backgroundColor: 'var(--light-blue)' }}>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
                 End Date
               </label>
@@ -208,7 +206,8 @@ const ParentAuthorizationsTab: React.FC = () => {
           </div>
 
           <button
-            className="w-full py-4 px-6 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+            className="w-full py-4 px-6 text-white rounded-xl disabled:opacity-50 font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+            style={{ backgroundColor: 'var(--color-dark)' }}
             onClick={handleAuthorizePickupPerson}
             disabled={loading || !pickupPersonName || !pickupPersonWallet || !relationship || !phoneNumber || !startDate || !endDate}
           >
@@ -219,7 +218,6 @@ const ParentAuthorizationsTab: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center justify-center space-x-2">
-                <span>🔐</span>
                 <span>Authorize</span>
               </div>
             )}
@@ -258,8 +256,6 @@ const ParentAuthorizationsTab: React.FC = () => {
       <TabContainer
         title="Manage Pickup Persons"
         description="View and manage authorized pickup persons"
-        icon="👥"
-        gradientColors="from-purple-500 to-purple-600"
       >
         <div className="space-y-4">
           {pickupPersons.map((person) => (

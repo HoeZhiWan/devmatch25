@@ -94,13 +94,16 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   return (
     <div className="space-y-6">
       {/* Camera Scanner */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
+      <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
         <div className="text-center mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <span className="text-white text-lg">📱</span>
+          <div className="w-20 h-20 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <img 
+              src="/icons/qr-code.png" 
+              alt="QR Code Icon" 
+              className="w-16 h-16" />
           </div>
-          <h4 className="font-semibold text-blue-800 mb-1">QR Code Scanner</h4>
-          <p className="text-sm text-blue-600">Point camera at QR code to scan</p>
+          <h4 className="font-semibold mb-1" style={{ color: 'var(--color-dark)' }}>QR Code Scanner</h4>
+          <p className="text-sm" style={{ color: 'var(--color-dark)' }}>Point camera at QR code to scan</p>
         </div>
         
         <div className="flex flex-col items-center space-y-4">
@@ -114,10 +117,10 @@ export default function QRCodeScanner({ onScan }: QRCodeScannerProps) {
           
           <div className="text-center text-sm">
             {cameraStatus === 'loading' && (
-              <p className="text-blue-600">🔄 Requesting camera access...</p>
+              <p className="text-blue-700">Requesting camera access...</p>
             )}
             {cameraStatus === 'granted' && (
-              <p className="text-green-600">📱 Position QR code within the frame to scan</p>
+              <p className="text-green-700">Position QR code within the frame to scan</p>
             )}
             {cameraStatus === 'denied' && (
               <div className="text-red-600">

@@ -26,8 +26,6 @@ const PickupHistoryTab: React.FC = () => {
     <TabContainer
       title="Pickup History"
       description="View your pickup history and records"
-      icon="📋"
-      gradientColors="from-green-500 to-green-600"
     >
       <div className="space-y-6">
         {/* Filters */}
@@ -67,7 +65,8 @@ const PickupHistoryTab: React.FC = () => {
                 setSelectedDate('');
                 setSelectedChild('All children');
               }}
-              className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors duration-200"
+              className="w-full px-4 py-2 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors duration-200"
+              style={{ backgroundColor: 'var(--light-blue)' }}
             >
               Clear Filters
             </button>
@@ -118,7 +117,7 @@ const PickupHistoryTab: React.FC = () => {
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {record.status === 'completed' ? '✅ Completed' : '⏳ Pending'}
+                        {record.status === 'completed' ? 'Completed' : 'Pending'}
                       </span>
                     </td>
                   </tr>
@@ -129,7 +128,7 @@ const PickupHistoryTab: React.FC = () => {
         )}
 
         {/* Summary */}
-        <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+        <div className="p-4 border border-green-200 rounded-xl" style={{ backgroundColor: 'var(--light-green)' }}>
           <h3 className="font-medium text-green-800 mb-2">📊 Your Pickup Summary</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>

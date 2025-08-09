@@ -19,6 +19,17 @@
   }
 } */
 
+:root {
+  --color-dark: #003751;
+  --color-yellow1: #fff6da;
+  --color-yellow2: #ffe996;
+  --color-yellow3: #ffc800;
+  --background: #fffae6;
+  --color-grey: #4b5056;
+  --light-blue: #e8eff1;
+  --light-green: #edffe8;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
