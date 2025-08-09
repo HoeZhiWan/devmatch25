@@ -9,9 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.1",
     "@types/qrcode": "^1.5.5",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
+    "axios": "^1.11.0",
     "ethers": "^6.15.0",
     "firebase": "^12.0.0",
     "firebase-admin": "^13.4.0",
@@ -25,6 +29,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/axios": "^0.9.36",
     "@types/node": "^20",
     "@types/qrcode.react": "^1.0.5",
     "@types/react": "^19",
